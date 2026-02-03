@@ -1,7 +1,8 @@
 export interface VocabularyItem {
     id: string;
     word: string;
-    reading: string;
+    reading?: string; // Optional old format
+    kanji_reading?: string; // New format for Furigana
     meaning_cn: string;
     meaning_en: string;
     level: string;

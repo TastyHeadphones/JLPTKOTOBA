@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { VirtuosoGrid } from 'react-virtuoso';
+import { Virtuoso } from 'react-virtuoso';
 import vocabData from './data/vocab.json';
 import type { VocabularyItem } from './types';
 import WordCard from './components/WordCard';
@@ -43,45 +43,18 @@ function App() {
       </header>
 
       {/* Main Content Area with Virtualized Grid */}
-      <main className="flex-1 w-full max-w-[1600px] mx-auto px-4 pb-4 pt-6">
-        <VirtuosoGrid
+      <main className="flex-1 w-full max-w-[700px] mx-auto px-4 pb-4 pt-6">
+        <Virtuoso
           style={{ height: '100%' }}
           totalCount={filteredVocabulary.length}
           overscan={200}
-          components={{
-            List: ({ children, style, ...props }: any) => (
-              <div
-                style={{
-                  ...style,
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  justifyContent: 'center',
-                  gap: '16px',
-                }}
-                {...props}
-              >
-                {children}
-              </div>
-            ),
-            Item: ({ children, ...props }: any) => (
-              <div
-                {...props}
-                style={{
-                  ...props.style,
-                  width: '320px',
-                  // Let flexbox handle positioning, but maintain width
-                  flex: '0 0 auto',
-                }}
-              >
-                {children}
-              </div>
-            )
-          }}
           itemContent={(index) => {
             const item = filteredVocabulary[index];
             return (
-              <div className="pb-4">
-                <WordCard item={item} />
+              <div className="pb-4 flex justify-center">
+                <div className="w-full">
+                  <WordCard item={item} />
+                </div>
               </div>
             );
           }}

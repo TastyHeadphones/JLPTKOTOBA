@@ -36,22 +36,40 @@ def parse_markdown_table(markdown_content):
         # Expecting columns: Word | Reading | Meaning (CN) | Meaning (EN)
         row_match = table_row_regex.match(line)
         if row_match and current_level:
-            word = row_match.group(1).strip()
+            raw_word = row_match.group(1).strip()
             # Headers row check
-            if word == 'Word':
+            if raw_word == 'Word':
                 continue
                 
-            reading = row_match.group(2).strip()
             meaning_cn = row_match.group(3).strip()
             meaning_en = row_match.group(4).strip()
             
-            # Simple unique ID generation (can be improved)
+            # Extract structured word/reading
+            # Logic: "漢字 (かんじ)" -> word="漢字", reading="かんじ"
+            # Logic: "会います (あ)" -> word="会います", reading="あ"
+            # Logic: "アイスクリーム" -> word="アイスクリーム", reading=""
+            
+            word = raw_word
+            reading = ""
+            kanji_part = ""
+            
+            paren_match = re.search(r'(.+?)\s*\((.+?)\)', raw_word)
+            if paren_match:
+                word = paren_match.group(1).strip()
+                reading = paren_match.group(2).strip()
+                # Attempt to identify the kanji part that maps to the reading
+                # For "会います (あ)", the kanji is likely "会"
+                # For "間 (あいだ)", the kanji is "間"
+                # We'll store the raw word, the display word, and the reading.
+                # In WordCard.tsx, we can use a simple replace logic if word contains kanji.
+            
+            # Simple unique ID generation
             unique_id = f"{current_level}_{len(data[current_level])}"
 
             item = {
                 "id": unique_id,
-                "word": word,
-                "reading": reading,
+                "word": word,          # The word as it should appear (without parentheses)
+                "kanji_reading": reading, # The reading inside the parentheses
                 "meaning_cn": meaning_cn,
                 "meaning_en": meaning_en,
                 "level": current_level
