@@ -1,12 +1,5 @@
 import { useState, useMemo } from 'react';
-import * as ReactWindow from 'react-window';
-import * as AutoSizerPkg from 'react-virtualized-auto-sizer';
-
-// @ts-ignore
-const GridComponent: any = ReactWindow.FixedSizeGrid || ReactWindow.Grid;
-// @ts-ignore
-const AutoSizerComponent: any = AutoSizerPkg.default || AutoSizerPkg.AutoSizer;
-
+import { VirtuosoGrid } from 'react-virtuoso';
 import vocabData from './data/vocab.json';
 import type { VocabularyItem } from './types';
 import WordCard from './components/WordCard';
@@ -25,25 +18,6 @@ function App() {
     });
   }, [selectedLevel]);
 
-  // Card Dimensions
-  const CARD_HEIGHT = 280;
-  const MIN_COLUMN_WIDTH = 300;
-
-  const Cell = ({ columnIndex, rowIndex, style, data }: any) => {
-    const { items, columnCount } = data;
-    const index = rowIndex * columnCount + columnIndex;
-
-    if (index >= items.length) {
-      return null;
-    }
-
-    const item = items[index];
-
-    return (
-      <WordCard item={item} style={style} />
-    );
-  };
-
   return (
     <div className="h-screen flex flex-col bg-apple-gray font-sans overflow-hidden">
       {/* Sticky Glass Header */}
@@ -58,8 +32,8 @@ function App() {
               key={level}
               onClick={() => setSelectedLevel(level)}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${selectedLevel === level
-                ? 'bg-white text-apple-blue shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
+                  ? 'bg-white text-apple-blue shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
                 }`}
             >
               {level}
@@ -70,31 +44,48 @@ function App() {
 
       {/* Main Content Area with Virtualized Grid */}
       <main className="flex-1 w-full max-w-[1600px] mx-auto px-4 pb-4 pt-6">
-        <div className="w-full h-full">
-          {/* @ts-ignore */}
-          <AutoSizerComponent>
-            {({ height, width }: { height: number; width: number }) => {
-              const columnCount = Math.floor(width / MIN_COLUMN_WIDTH) || 1;
-              const columnWidth = width / columnCount;
-              const rowCount = Math.ceil(filteredVocabulary.length / columnCount);
-
-              return (
-                <GridComponent
-                  columnCount={columnCount}
-                  columnWidth={columnWidth}
-                  height={height}
-                  rowCount={rowCount}
-                  rowHeight={CARD_HEIGHT}
-                  width={width}
-                  itemData={{ items: filteredVocabulary, columnCount }}
-                  className="no-scrollbar"
-                >
-                  {Cell}
-                </GridComponent>
-              );
-            }}
-          </AutoSizerComponent>
-        </div>
+        <VirtuosoGrid
+          style={{ height: '100%' }}
+          totalCount={filteredVocabulary.length}
+          overscan={200}
+          components={{
+            List: ({ children, style, ...props }: any) => (
+              <div
+                style={{
+                  ...style,
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  justifyContent: 'center',
+                  gap: '16px',
+                }}
+                {...props}
+              >
+                {children}
+              </div>
+            ),
+            Item: ({ children, ...props }: any) => (
+              <div
+                {...props}
+                style={{
+                  ...props.style,
+                  width: '320px',
+                  // Let flexbox handle positioning, but maintain width
+                  flex: '0 0 auto',
+                }}
+              >
+                {children}
+              </div>
+            )
+          }}
+          itemContent={(index) => {
+            const item = filteredVocabulary[index];
+            return (
+              <div className="pb-4">
+                <WordCard item={item} />
+              </div>
+            );
+          }}
+        />
       </main>
 
       {/* Footer Info */}
