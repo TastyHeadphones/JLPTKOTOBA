@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
-import * as ReactWindow from 'react-window';
+// @ts-ignore
+import { Grid } from 'react-window';
 import { AutoSizer } from 'react-virtualized-auto-sizer';
 
 // @ts-ignore
-const Grid = ReactWindow.FixedSizeGrid;
+const GridComponent: any = Grid;
 // @ts-ignore
 const AutoSizerComponent: any = AutoSizer;
 
@@ -15,19 +16,15 @@ const allVocabulary = vocabData as VocabularyItem[];
 
 function App() {
   const [selectedLevel, setSelectedLevel] = useState<string>('All');
-  const [searchTerm, setSearchTerm] = useState('');
 
   const levels = ['All', 'N5', 'N4', 'N3', 'N2', 'N1'];
 
   const filteredVocabulary = useMemo(() => {
     return allVocabulary.filter(item => {
       const matchLevel = selectedLevel === 'All' || item.level === selectedLevel;
-      const matchSearch = item.word.includes(searchTerm) ||
-        item.meaning_cn.includes(searchTerm) ||
-        item.reading.includes(searchTerm);
-      return matchLevel && matchSearch;
+      return matchLevel;
     });
-  }, [selectedLevel, searchTerm]);
+  }, [selectedLevel]);
 
   // Card Dimensions
   const CARD_HEIGHT = 280;
@@ -70,32 +67,20 @@ function App() {
             </button>
           ))}
         </div>
-
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="Search..."
-            className="pl-10 pr-4 py-2 bg-gray-200/50 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-apple-blue/50 focus:outline-none transition-all w-64"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <svg className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-        </div>
       </header>
 
       {/* Main Content Area with Virtualized Grid */}
       <main className="flex-1 w-full max-w-[1600px] mx-auto px-4 pb-4 pt-6">
         <div className="w-full h-full">
-          <AutoSizerComponent>
+          {/* @ts-ignore */}
+          <AutoSizer>
             {({ height, width }: { height: number; width: number }) => {
               const columnCount = Math.floor(width / MIN_COLUMN_WIDTH) || 1;
               const columnWidth = width / columnCount;
               const rowCount = Math.ceil(filteredVocabulary.length / columnCount);
 
               return (
-                <Grid
+                <GridComponent
                   columnCount={columnCount}
                   columnWidth={columnWidth}
                   height={height}
@@ -106,10 +91,10 @@ function App() {
                   className="no-scrollbar"
                 >
                   {Cell}
-                </Grid>
+                </GridComponent>
               );
             }}
-          </AutoSizerComponent>
+          </AutoSizer>
         </div>
       </main>
 
