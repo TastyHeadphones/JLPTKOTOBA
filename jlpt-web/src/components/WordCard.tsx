@@ -1,5 +1,5 @@
 import React from 'react';
-import { VocabularyItem } from '../types';
+import type { VocabularyItem } from '../types';
 
 interface WordCardProps {
     item: VocabularyItem;

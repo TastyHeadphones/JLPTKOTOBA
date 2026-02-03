@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import vocabData from './data/vocab.json';
-import { VocabularyItem } from './types';
+import type { VocabularyItem } from './types';
 import WordCard from './components/WordCard';
 
 // Cast imported JSON to typed array
@@ -43,8 +43,8 @@ function App() {
                 key={level}
                 onClick={() => setSelectedLevel(level)}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${selectedLevel === level
-                    ? 'bg-white text-indigo-600 shadow-sm transform scale-105'
-                    : 'text-gray-500 hover:text-gray-700'
+                  ? 'bg-white text-indigo-600 shadow-sm transform scale-105'
+                  : 'text-gray-500 hover:text-gray-700'
                   }`}
               >
                 {level}
