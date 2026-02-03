@@ -1,12 +1,11 @@
 import { useState, useMemo } from 'react';
-// @ts-ignore
-import { Grid } from 'react-window';
-import { AutoSizer } from 'react-virtualized-auto-sizer';
+import * as ReactWindow from 'react-window';
+import * as AutoSizerPkg from 'react-virtualized-auto-sizer';
 
 // @ts-ignore
-const GridComponent: any = Grid;
+const GridComponent: any = ReactWindow.FixedSizeGrid || ReactWindow.Grid;
 // @ts-ignore
-const AutoSizerComponent: any = AutoSizer;
+const AutoSizerComponent: any = AutoSizerPkg.default || AutoSizerPkg.AutoSizer;
 
 import vocabData from './data/vocab.json';
 import type { VocabularyItem } from './types';
@@ -73,7 +72,7 @@ function App() {
       <main className="flex-1 w-full max-w-[1600px] mx-auto px-4 pb-4 pt-6">
         <div className="w-full h-full">
           {/* @ts-ignore */}
-          <AutoSizer>
+          <AutoSizerComponent>
             {({ height, width }: { height: number; width: number }) => {
               const columnCount = Math.floor(width / MIN_COLUMN_WIDTH) || 1;
               const columnWidth = width / columnCount;
@@ -94,7 +93,7 @@ function App() {
                 </GridComponent>
               );
             }}
-          </AutoSizer>
+          </AutoSizerComponent>
         </div>
       </main>
 
