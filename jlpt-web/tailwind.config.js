@@ -7,14 +7,20 @@ export default {
     theme: {
         extend: {
             fontFamily: {
-                'jp': ['"Noto Sans JP"', 'sans-serif'],
+                'sans': ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+                'jp': ['"Hiragino Kaku Gothic ProN"', '"Hiragino Sans"', 'Meiryo', 'sans-serif'],
             },
             colors: {
-                'sakura': '#fde2e6',
-                'bamboo': '#d4e6c2',
-                'indigo-jp': '#2b3a55',
+                'apple-blue': '#007AFF',
+                'apple-gray': '#F5F5F7',
+                'apple-dark': '#1D1D1F',
+                'card-bg': '#FFFFFF',
+            },
+            boxShadow: {
+                'apple': '0 4px 12px rgba(0, 0, 0, 0.08)',
+                'apple-hover': '0 8px 24px rgba(0, 0, 0, 0.12)',
             }
-        },
+        }
     },
     plugins: [],
 }

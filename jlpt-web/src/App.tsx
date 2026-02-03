@@ -1,9 +1,16 @@
 import { useState, useMemo } from 'react';
+import * as ReactWindow from 'react-window';
+import { AutoSizer } from 'react-virtualized-auto-sizer';
+
+// @ts-ignore
+const Grid = ReactWindow.FixedSizeGrid;
+// @ts-ignore
+const AutoSizerComponent: any = AutoSizer;
+
 import vocabData from './data/vocab.json';
 import type { VocabularyItem } from './types';
 import WordCard from './components/WordCard';
 
-// Cast imported JSON to typed array
 const allVocabulary = vocabData as VocabularyItem[];
 
 function App() {
@@ -22,58 +29,93 @@ function App() {
     });
   }, [selectedLevel, searchTerm]);
 
+  // Card Dimensions
+  const CARD_HEIGHT = 280;
+  const MIN_COLUMN_WIDTH = 300;
+
+  const Cell = ({ columnIndex, rowIndex, style, data }: any) => {
+    const { items, columnCount } = data;
+    const index = rowIndex * columnCount + columnIndex;
+
+    if (index >= items.length) {
+      return null;
+    }
+
+    const item = items[index];
+
+    return (
+      <WordCard item={item} style={style} />
+    );
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8 font-jp">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-extrabold text-indigo-900 sm:text-5xl sm:tracking-tight lg:text-6xl">
-            JLPT Kotoba
-          </h1>
-          <p className="mt-4 max-w-2xl mx-auto text-xl text-gray-500">
-            Master Japanese Vocabulary with Native Audio & Examples
-          </p>
-        </div>
+    <div className="h-screen flex flex-col bg-apple-gray font-sans overflow-hidden">
+      {/* Sticky Glass Header */}
+      <header className="glass z-50 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 shrink-0 transition-all duration-300">
+        <h1 className="text-2xl font-bold text-apple-dark tracking-tight">
+          JLPT Kotoba
+        </h1>
 
-        {/* Controls */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-10 sticky top-4 z-10 bg-white/80 backdrop-blur-md p-4 rounded-2xl shadow-lg border border-white/20">
-          <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
-            {levels.map(level => (
-              <button
-                key={level}
-                onClick={() => setSelectedLevel(level)}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${selectedLevel === level
-                  ? 'bg-white text-indigo-600 shadow-sm transform scale-105'
-                  : 'text-gray-500 hover:text-gray-700'
-                  }`}
-              >
-                {level}
-              </button>
-            ))}
-          </div>
-
-          <input
-            type="text"
-            placeholder="Search keywords..."
-            className="w-full sm:w-64 px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-
-        {/* Grid */}
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filteredVocabulary.slice(0, 100).map((item) => (
-            /* Limit to 100 for performance until we add virtualization or pagination */
-            <WordCard key={item.id} item={item} />
+        <div className="flex bg-gray-200/50 p-1 rounded-xl">
+          {levels.map(level => (
+            <button
+              key={level}
+              onClick={() => setSelectedLevel(level)}
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${selectedLevel === level
+                ? 'bg-white text-apple-blue shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+                }`}
+            >
+              {level}
+            </button>
           ))}
         </div>
 
-        {filteredVocabulary.length > 100 && (
-          <div className="mt-8 text-center text-gray-400">
-            Showing first 100 of {filteredVocabulary.length} words. Filter to see more.
-          </div>
-        )}
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Search..."
+            className="pl-10 pr-4 py-2 bg-gray-200/50 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-apple-blue/50 focus:outline-none transition-all w-64"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <svg className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+      </header>
+
+      {/* Main Content Area with Virtualized Grid */}
+      <main className="flex-1 w-full max-w-[1600px] mx-auto px-4 pb-4 pt-6">
+        <div className="w-full h-full">
+          <AutoSizerComponent>
+            {({ height, width }: { height: number; width: number }) => {
+              const columnCount = Math.floor(width / MIN_COLUMN_WIDTH) || 1;
+              const columnWidth = width / columnCount;
+              const rowCount = Math.ceil(filteredVocabulary.length / columnCount);
+
+              return (
+                <Grid
+                  columnCount={columnCount}
+                  columnWidth={columnWidth}
+                  height={height}
+                  rowCount={rowCount}
+                  rowHeight={CARD_HEIGHT}
+                  width={width}
+                  itemData={{ items: filteredVocabulary, columnCount }}
+                  className="no-scrollbar"
+                >
+                  {Cell}
+                </Grid>
+              );
+            }}
+          </AutoSizerComponent>
+        </div>
+      </main>
+
+      {/* Footer Info */}
+      <div className="text-center py-2 text-xs text-gray-400">
+        {filteredVocabulary.length} words
       </div>
     </div>
   );
