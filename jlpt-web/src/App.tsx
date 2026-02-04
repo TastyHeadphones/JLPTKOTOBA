@@ -32,8 +32,8 @@ function App() {
               key={level}
               onClick={() => setSelectedLevel(level)}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${selectedLevel === level
-                  ? 'bg-white text-apple-blue shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
+                ? 'bg-white text-apple-blue shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
                 }`}
             >
               {level}
@@ -62,8 +62,11 @@ function App() {
       </main>
 
       {/* Footer Info */}
-      <div className="text-center py-2 text-xs text-gray-400">
-        {filteredVocabulary.length} words
+      <div className="text-center py-4 text-[10px] text-gray-400 bg-white/50 border-t border-gray-100 flex justify-center gap-4">
+        <span>{filteredVocabulary.length} words in this level</span>
+        <span className="text-apple-blue font-medium">
+          {filteredVocabulary.filter(v => v.example_sentence).length} / {filteredVocabulary.length} sentences complete
+        </span>
       </div>
     </div>
   );

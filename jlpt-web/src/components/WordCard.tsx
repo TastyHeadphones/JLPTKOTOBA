@@ -65,24 +65,33 @@ const WordCard: React.FC<WordCardProps> = ({ item, style }) => {
                 </div>
 
                 <div className="flex flex-col items-center">
-                    <div className="text-4xl font-bold text-apple-dark font-jp mb-4 leading-relaxed">
+                    <div className="text-4xl font-bold text-apple-dark font-jp mb-4 leading-relaxed tracking-tight">
                         {renderWord()}
                     </div>
 
                     <div className="mt-2 space-y-1">
-                        <p className="text-xl font-semibold text-gray-900 leading-tight">{item.meaning_cn}</p>
-                        <p className="text-sm text-gray-500 font-medium tracking-tight uppercase">{item.meaning_en}</p>
+                        <p className="text-xl font-semibold text-gray-800 leading-tight">{item.meaning_cn}</p>
+                        <p className="text-xs text-gray-400 font-bold tracking-widest uppercase">{item.meaning_en}</p>
                     </div>
                 </div>
 
                 {item.example_sentence && (
                     <div
-                        className="mt-4 pt-4 border-t border-gray-100 cursor-pointer group"
+                        className="mt-8 w-full pt-6 border-t border-gray-100 flex flex-col items-center group cursor-pointer"
                         onClick={() => speak(item.example_sentence!)}
                     >
-                        <p className="text-sm text-gray-600 font-jp leading-relaxed group-hover:text-apple-blue transition-colors">
+                        <div className="text-apple-blue mb-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                            </svg>
+                        </div>
+                        <p className="text-[15px] text-gray-700 font-jp leading-relaxed max-w-[80%] text-center group-hover:text-apple-blue transition-colors">
                             {item.example_sentence}
                         </p>
+                        <div className="mt-3 space-y-0.5 opacity-80 group-hover:opacity-100 transition-opacity">
+                            <p className="text-sm text-gray-500 font-medium">{item.example_meaning_cn}</p>
+                            <p className="text-[11px] text-gray-400 italic">{item.example_meaning_en}</p>
+                        </div>
                     </div>
                 )}
             </div>
