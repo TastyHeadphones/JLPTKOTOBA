@@ -165,6 +165,11 @@ function init() {
       render();
     });
 
+  if (typeof kuromoji === 'undefined') {
+    console.error('kuromoji is not loaded');
+    return;
+  }
+
   kuromoji.builder({ dicPath: 'kuromoji-dict/' })
     .build((err, tok) => {
       if (err) {
