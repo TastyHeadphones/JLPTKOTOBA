@@ -31,4 +31,4 @@ python3 /Users/young/Github/JLPTKOTOBA/scripts/build_site.py
 
 ## 说明
 - 英文释义优先来自 JMdict（由脚本下载并解析）。
-- 若未命中英文释义，网页端会用 MyMemory 翻译 API 生成并缓存（保存在浏览器 `localStorage`）。
+- 未命中英文释义的词条会显示 `—`，避免页面初始化时的大量在线请求。

@@ -4,15 +4,14 @@ const searchInput = document.getElementById('searchInput');
 const sourceFilter = document.getElementById('sourceFilter');
 const countEl = document.getElementById('count');
 const furiganaToggle = document.getElementById('furiganaToggle');
+const loadMoreBtn = document.getElementById('loadMoreBtn');
+
+const PAGE_SIZE = 120;
 
 let words = [];
 let tokenizer = null;
+let currentPage = 1;
 const rubyCache = new Map();
-const translationCache = JSON.parse(localStorage.getItem('zhEnCache') || '{}');
-const pendingTranslations = new Set();
-const translationQueue = [];
-let activeTranslations = 0;
-const MAX_TRANSLATIONS = 3;
 
 function hasKanji(text) {
   return /[\u4e00-\u9faf]/.test(text);
@@ -51,63 +50,33 @@ function speak(text) {
   window.speechSynthesis.speak(utter);
 }
 
-function saveTranslationCache() {
-  localStorage.setItem('zhEnCache', JSON.stringify(translationCache));
-}
-
-function enqueueTranslation(zh, onDone) {
-  if (!zh || pendingTranslations.has(zh)) return;
-  pendingTranslations.add(zh);
-  translationQueue.push({ zh, onDone });
-  processTranslationQueue();
-}
-
-function processTranslationQueue() {
-  if (activeTranslations >= MAX_TRANSLATIONS || translationQueue.length === 0) return;
-  const job = translationQueue.shift();
-  activeTranslations += 1;
-
-  const url = `https://api.mymemory.translated.net/get?${new URLSearchParams({ q: job.zh, langpair: 'zh-CN|en' })}`;
-  fetch(url)
-    .then((res) => res.json())
-    .then((data) => {
-      const translated = data?.responseData?.translatedText || '';
-      if (translated) {
-        translationCache[job.zh] = translated;
-        saveTranslationCache();
-      }
-      job.onDone(translated);
-    })
-    .catch(() => job.onDone(''))
-    .finally(() => {
-      pendingTranslations.delete(job.zh);
-      activeTranslations -= 1;
-      processTranslationQueue();
-    });
-}
-
-function render() {
+function getFilteredWords() {
   const q = searchInput.value.trim().toLowerCase();
   const source = sourceFilter.value;
 
-  listEl.innerHTML = '';
-
-  const filtered = words.filter((w) => {
+  return words.filter((w) => {
     const matchesSource = source === 'all' || w.source === source;
     if (!matchesSource) return false;
     if (!q) return true;
-    return (
-      w.term.toLowerCase().includes(q) ||
-      w.zh.toLowerCase().includes(q) ||
-      w.en.toLowerCase().includes(q) ||
-      w.example.toLowerCase().includes(q)
-    );
-  });
 
-  countEl.textContent = filtered.length.toLocaleString();
+    const term = (w.term || '').toLowerCase();
+    const zh = (w.zh || '').toLowerCase();
+    const en = (w.en || '').toLowerCase();
+    const example = (w.example || '').toLowerCase();
+    return term.includes(q) || zh.includes(q) || en.includes(q) || example.includes(q);
+  });
+}
+
+function render() {
+  const filtered = getFilteredWords();
+  const visibleCount = Math.min(filtered.length, currentPage * PAGE_SIZE);
+  const visible = filtered.slice(0, visibleCount);
+
+  countEl.textContent = `${visibleCount}/${filtered.length}`;
+  listEl.innerHTML = '';
 
   const fragment = document.createDocumentFragment();
-  filtered.forEach((w) => {
+  visible.forEach((w) => {
     const node = template.content.cloneNode(true);
     const termBtn = node.querySelector('.speak.term');
     const exampleBtn = node.querySelector('.speak.example');
@@ -115,35 +84,21 @@ function render() {
     const zh = node.querySelector('.value.zh');
     const en = node.querySelector('.value.en');
 
-    termBtn.innerHTML = toRuby(w.term);
-    termBtn.addEventListener('click', () => speak(w.term));
-    exampleBtn.innerHTML = toRuby(w.example);
-    exampleBtn.addEventListener('click', () => speak(w.example));
-    badge.textContent = w.source.replace('wordlist.pdf', '');
+    termBtn.innerHTML = toRuby(w.term || '');
+    termBtn.addEventListener('click', () => speak(w.term || ''));
+
+    exampleBtn.innerHTML = toRuby(w.example || '');
+    exampleBtn.addEventListener('click', () => speak(w.example || ''));
+
+    badge.textContent = (w.source || '').replace('wordlist.pdf', '');
     zh.textContent = w.zh || '—';
-    if (w.en) {
-      en.textContent = w.en;
-    } else if (w.zh && translationCache[w.zh]) {
-      w.en = translationCache[w.zh];
-      en.textContent = w.en;
-    } else if (w.zh) {
-      en.textContent = '翻译中...';
-      enqueueTranslation(w.zh, (translated) => {
-        if (translated) {
-          w.en = translated;
-          en.textContent = translated;
-        } else {
-          en.textContent = '—';
-        }
-      });
-    } else {
-      en.textContent = '—';
-    }
+    en.textContent = w.en || '—';
 
     fragment.appendChild(node);
   });
 
   listEl.appendChild(fragment);
+  loadMoreBtn.hidden = visibleCount >= filtered.length;
 }
 
 function initSources() {
@@ -154,6 +109,11 @@ function initSources() {
     opt.textContent = src.replace('wordlist.pdf', '');
     sourceFilter.appendChild(opt);
   });
+}
+
+function resetAndRender() {
+  currentPage = 1;
+  render();
 }
 
 function init() {
@@ -182,10 +142,14 @@ function init() {
     });
 }
 
-searchInput.addEventListener('input', render);
-sourceFilter.addEventListener('change', render);
+searchInput.addEventListener('input', resetAndRender);
+sourceFilter.addEventListener('change', resetAndRender);
 furiganaToggle.addEventListener('change', () => {
   rubyCache.clear();
+  render();
+});
+loadMoreBtn.addEventListener('click', () => {
+  currentPage += 1;
   render();
 });
 

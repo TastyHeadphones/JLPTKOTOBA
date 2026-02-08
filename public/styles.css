@@ -117,6 +117,32 @@ header {
   gap: 18px;
 }
 
+.pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.load-more {
+  border: 1px solid rgba(192, 86, 58, 0.4);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 10px 22px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+}
+
+.load-more:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.load-more[hidden] {
+  display: none;
+}
+
 .card {
   background: var(--card);
   border-radius: 18px;
