@@ -5,8 +5,17 @@ const sourceFilter = document.getElementById('sourceFilter');
 const countEl = document.getElementById('count');
 const furiganaToggle = document.getElementById('furiganaToggle');
 const loadMoreBtn = document.getElementById('loadMoreBtn');
+const furiganaStatus = document.getElementById('furiganaStatus');
 
 const PAGE_SIZE = 120;
+const KUROMOJI_SCRIPT_URLS = [
+  'https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/build/kuromoji.js',
+  'https://unpkg.com/kuromoji@0.1.2/build/kuromoji.js'
+];
+const KUROMOJI_DICT_PATHS = [
+  'https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/',
+  'https://unpkg.com/kuromoji@0.1.2/dict/'
+];
 
 let words = [];
 let tokenizer = null;
@@ -116,6 +125,67 @@ function resetAndRender() {
   render();
 }
 
+function loadScript(url) {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = url;
+    script.async = true;
+    script.onload = () => resolve(url);
+    script.onerror = () => reject(new Error(`script load failed: ${url}`));
+    document.head.appendChild(script);
+  });
+}
+
+async function ensureKuromojiLoaded() {
+  if (typeof kuromoji !== 'undefined') return true;
+
+  for (const url of KUROMOJI_SCRIPT_URLS) {
+    try {
+      await loadScript(url);
+      if (typeof kuromoji !== 'undefined') return true;
+    } catch (err) {
+      console.warn(err.message);
+    }
+  }
+  return false;
+}
+
+function buildTokenizer(dicPath) {
+  return new Promise((resolve, reject) => {
+    kuromoji.builder({ dicPath }).build((err, tok) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      resolve(tok);
+    });
+  });
+}
+
+async function initFurigana() {
+  furiganaStatus.textContent = '假名加载中...';
+
+  const loaded = await ensureKuromojiLoaded();
+  if (!loaded) {
+    furiganaStatus.textContent = '假名加载失败：库文件不可用';
+    return;
+  }
+
+  for (const dicPath of KUROMOJI_DICT_PATHS) {
+    try {
+      tokenizer = await buildTokenizer(dicPath);
+      rubyCache.clear();
+      furiganaStatus.textContent = '假名已启用';
+      render();
+      return;
+    } catch (err) {
+      console.warn(`dict failed: ${dicPath}`, err);
+    }
+  }
+
+  furiganaStatus.textContent = '假名加载失败：词典不可用';
+}
+
 function init() {
   fetch('words.json')
     .then((res) => res.json())
@@ -125,21 +195,7 @@ function init() {
       render();
     });
 
-  if (typeof kuromoji === 'undefined') {
-    console.error('kuromoji is not loaded');
-    return;
-  }
-
-  kuromoji.builder({ dicPath: 'https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/' })
-    .build((err, tok) => {
-      if (err) {
-        console.error(err);
-        return;
-      }
-      tokenizer = tok;
-      rubyCache.clear();
-      render();
-    });
+  initFurigana();
 }
 
 searchInput.addEventListener('input', resetAndRender);
