@@ -1,8 +1,7 @@
+import gzip
 import json
 import os
 import re
-import gzip
-import zipfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -14,10 +13,7 @@ DATA_DIR = ROOT / 'data'
 PUBLIC_DIR = ROOT / 'public'
 
 JMDICT_GZ = DATA_DIR / 'JMdict_e.gz'
-TANAKA_ZIP = DATA_DIR / 'jpn-eng.zip'
-
 JMDICT_URL = 'https://www.edrdg.org/pub/Nihongo/JMdict_e.gz'
-TANAKA_URL = 'https://www.manythings.org/anki/jpn-eng.zip'
 
 
 def download_if_missing(url, path):
@@ -30,7 +26,6 @@ def download_if_missing(url, path):
 
 
 def group_lines(words, y_tol=2.0):
-    # Group words into lines based on top coordinate
     lines = []
     for w in sorted(words, key=lambda x: (x['top'], x['x0'])):
         placed = False
@@ -41,7 +36,6 @@ def group_lines(words, y_tol=2.0):
                 break
         if not placed:
             lines.append({'top': w['top'], 'words': [w]})
-    # Normalize line order and word order
     for line in lines:
         line['words'] = sorted(line['words'], key=lambda x: x['x0'])
     lines = sorted(lines, key=lambda x: x['top'])
@@ -80,22 +74,18 @@ def parse_pdfs():
                         continue
 
                     if right_text:
-                        # continuation lines for descriptions
                         if (not left_text) or ('。' in left_text and current is not None):
                             if current is not None:
                                 current['zh'] = (current['zh'] + ' ' + right_text).strip()
                             continue
 
-                        # New entry
                         term = left_text.replace(' ', '')
                         zh = right_text.replace(' ', '')
 
-                        # Treat long hiragana lines as continuation (likely furigana for explanations)
                         if is_hiragana_only(term) and len(term) >= 8 and current is not None:
                             current['zh'] = (current['zh'] + ' ' + zh).strip()
                             continue
 
-                        # Handle colon entries like "ねぶた祭り： 青森睡魔祭："
                         if '：' in term and '：' in zh:
                             term = term.split('：')[0]
                             zh = zh.split('：')[0]
@@ -105,16 +95,12 @@ def parse_pdfs():
                         term = re.sub(r'\d+$', '', term).strip()
                         zh = re.sub(r'\s*\d+\s*$', '', zh).strip()
 
-                        # Skip noisy lines
                         if not term or is_header_line(term):
                             continue
 
                         current = {'term': term, 'zh': zh, 'source': pdf_path.name}
                         entries.append(current)
-                    else:
-                        # likely a reading line; ignore
-                        continue
-    # Deduplicate by term+zh
+
     seen = set()
     deduped = []
     for e in entries:
@@ -153,96 +139,13 @@ def build_jmdict_maps():
     return kanji_map, reading_map
 
 
-class AhoNode:
-    __slots__ = ('next', 'fail', 'out')
-    def __init__(self):
-        self.next = {}
-        self.fail = None
-        self.out = []
-
-
-def build_aho_automaton(patterns):
-    root = AhoNode()
-    for pat in patterns:
-        node = root
-        for ch in pat:
-            node = node.next.setdefault(ch, AhoNode())
-        node.out.append(pat)
-    # build fail links
-    queue = []
-    for node in root.next.values():
-        node.fail = root
-        queue.append(node)
-    while queue:
-        r = queue.pop(0)
-        for ch, u in r.next.items():
-            queue.append(u)
-            v = r.fail
-            while v and ch not in v.next:
-                v = v.fail
-            u.fail = v.next[ch] if v and ch in v.next else root
-            u.out += u.fail.out
-    return root
-
-
-def find_examples(terms):
-    download_if_missing(TANAKA_URL, TANAKA_ZIP)
-    print('Searching example sentences...')
-    pending = set(terms)
-    examples = {}
-    root = build_aho_automaton(pending)
-
-    def is_japanese_text(text):
-        return bool(re.search(r'[\u3040-\u30ff\u4e00-\u9faf]', text))
-
-    with zipfile.ZipFile(TANAKA_ZIP) as z:
-        # find the Japanese/English text file
-        name = None
-        for n in z.namelist():
-            if n.endswith('jpn.txt'):
-                name = n
-                break
-        if name is None:
-            return examples
-        with z.open(name) as f:
-            for raw in f:
-                try:
-                    line = raw.decode('utf-8').strip()
-                except UnicodeDecodeError:
-                    continue
-                if not line:
-                    continue
-                parts = line.split('\t')
-                jp = parts[0]
-                if not is_japanese_text(jp):
-                    continue
-                # Aho-Corasick scan
-                node = root
-                for ch in jp:
-                    while node and ch not in node.next:
-                        node = node.fail
-                    if not node:
-                        node = root
-                        continue
-                    node = node.next[ch]
-                    for pat in node.out:
-                        if pat in pending:
-                            examples[pat] = jp
-                            pending.remove(pat)
-                    if not pending:
-                        return examples
-    return examples
-
-
 def normalize_term(term):
-    t = term.replace('～', '').replace('・', '')
+    t = term.replace('～', '').replace('〜', '').replace('・', '')
     t = re.sub(r'（.*?）', '', t)
-    t = re.sub(r'\\(.*?\\)', '', t)
-    t = t.replace('〜', '').strip()
+    t = re.sub(r'\(.*?\)', '', t)
+    t = t.strip('：: ').strip()
     t = re.sub(r'する$', '', t)
     return t
-
-
 
 
 SUFFIX_TRANSLATIONS = {
@@ -277,7 +180,6 @@ def lookup_gloss(term, kanji_map, reading_map):
         if c in reading_map:
             return reading_map[c]
 
-    # Split by separators
     for sep in ['・', '/', '／']:
         if sep in term:
             parts = [p for p in term.split(sep) if p]
@@ -291,14 +193,12 @@ def lookup_gloss(term, kanji_map, reading_map):
             if glosses:
                 return ['; '.join(glosses)]
 
-    # Handle の constructions
     if 'の' in term:
         prefix, suffix = term.rsplit('の', 1)
         suffix_gloss = kanji_map.get(suffix) or reading_map.get(suffix) or kanji_map.get(normalize_term(suffix))
         if suffix_gloss:
             return [f"{suffix_gloss[0]} (related to {prefix})"]
 
-    # Handle common suffixes
     for suffix, eng in SUFFIX_TRANSLATIONS.items():
         if term.endswith(suffix) and len(term) > len(suffix):
             base = term[:-len(suffix)]
@@ -306,7 +206,6 @@ def lookup_gloss(term, kanji_map, reading_map):
             if base_gloss:
                 return [f"{base_gloss[0]} {eng}"]
 
-    # Try longest substring match
     norm = normalize_term(term)
     best = None
     for i in range(len(norm)):
@@ -320,32 +219,107 @@ def lookup_gloss(term, kanji_map, reading_map):
     return best
 
 
+def _stable_index(term, count):
+    return sum(ord(c) for c in term) % count
+
+
+def _is_kana(text):
+    return bool(text) and re.fullmatch(r'[\u3040-\u30ffー]+', text) is not None
+
+
+def _pick(templates, term):
+    return templates[_stable_index(term, len(templates))]
+
+
+def generate_example(term):
+    raw = term.strip()
+    base = normalize_term(raw)
+    display = base or raw
+    filled = raw.replace('～', '十').replace('〜', '十')
+
+    suru_templates = [
+        '{w}件、最近は職場でも普通に使う場面が増えてきたよ。',
+        '来月の企画は私が{w}ことになって、今準備で忙しい。',
+        'この案件、先に{w}と後の流れがかなり楽になる。',
+        '急ぎの連絡が来たから、まずは今日中に{w}つもりだよ。',
+        'チームで相談して、明日の朝いちで{w}方針にした。',
+    ]
+    verb_templates = [
+        '今日は予定を少し早めて、駅前で{w}ことにしたんだ。',
+        '忙しい日でも、要点だけはちゃんと{w}ようにしている。',
+        '急な話だったけど、落ち着いて{w}たらうまくいった。',
+        'この場面では、周りを見ながら{w}のが大事だと思う。',
+        '最近は無理をせず、自分のペースで{w}ようにしてる。',
+    ]
+    i_adj_templates = [
+        'この店、思ったより{w}から、また来たいって思った。',
+        '最初は不安だったけど、やってみたら意外と{w}ね。',
+        '最近この方法が{w}って分かって、かなり助かってる。',
+        'その説明、短いのにすごく{w}から頭に入りやすい。',
+        '今日は風が{w}し、早めに帰った方がよさそうだね。',
+    ]
+    adverb_templates = [
+        '朝の会議で部長が{w}説明してくれて、全員すぐ理解できた。',
+        '彼は質問に{w}答えるから、話していて安心できる。',
+        '今日は時間がないから、ポイントだけ{w}共有しておくね。',
+        '現場では{w}動くのが大事で、焦るとかえってミスする。',
+        '相手の反応を見ながら{w}進めたら、会話がすごくスムーズだった。',
+    ]
+    noun_templates = [
+        '最近のニュースで{w}って言葉をよく聞くし、身近な話題になってる。',
+        'この前の打ち合わせでも{w}が話題になって、みんなで意見を出した。',
+        '最初は難しく感じたけど、{w}の意味が分かると面白くなるね。',
+        '実際に使ってみると、{w}の大事さを改めて実感する。',
+        '友達と話していても{w}の話が出ることが増えてきたよ。',
+    ]
+    name_templates = [
+        '昨日、{w}の特集を見て、改めてすごい人だと思った。',
+        '授業で{w}の話が出てきて、もっと調べたくなった。',
+        '最近、{w}に関する動画を見ていてかなり興味が湧いた。',
+        '本屋で{w}の関連本を見かけて、つい手に取ってしまった。',
+        '友達が{w}に詳しくて、話を聞いているだけで面白かった。',
+    ]
+
+    if re.search(r'（.*?する.*?）', raw) or raw.endswith('する'):
+        w = display + 'する' if not display.endswith('する') else display
+        return _pick(suru_templates, raw).format(w=w)
+
+    if '～' in raw or '〜' in raw:
+        return _pick(noun_templates, raw).format(w=filled)
+
+    if re.search(r'[0-9０-９]{4}', raw) or re.search(r'[・.]', raw):
+        return _pick(name_templates, raw).format(w=display)
+
+    if display.endswith(('に', 'と')) and _is_kana(display):
+        return _pick(adverb_templates, raw).format(w=display)
+
+    if display.endswith('い') and len(display) >= 2 and _is_kana(display[-2:]):
+        return _pick(i_adj_templates, raw).format(w=display)
+
+    if display.endswith(('う', 'く', 'ぐ', 'す', 'つ', 'ぬ', 'ぶ', 'む', 'る')) and _is_kana(display[-1]):
+        return _pick(verb_templates, raw).format(w=display)
+
+    return _pick(noun_templates, raw).format(w=display)
+
+
 def main():
     entries = parse_pdfs()
     kanji_map, reading_map = build_jmdict_maps()
-
-    terms = [e['term'] for e in entries]
-    examples = find_examples(terms)
 
     out = []
     for i, e in enumerate(entries, 1):
         term = e['term']
         zh = e['zh']
-        norm = normalize_term(term)
 
         gloss = lookup_gloss(term, kanji_map, reading_map)
         en = '; '.join(gloss) if gloss else ''
-
-        example = examples.get(term) or examples.get(norm)
-        if not example:
-            example = f"この単語は「{term}」です。"
 
         out.append({
             'id': i,
             'term': term,
             'zh': zh,
             'en': en,
-            'example': example,
+            'example': generate_example(term),
             'source': e['source']
         })
 
@@ -354,6 +328,7 @@ def main():
         json.dump(out, f, ensure_ascii=False, indent=2)
 
     print(f'Wrote {len(out)} entries to {PUBLIC_DIR / "words.json"}')
+
 
 if __name__ == '__main__':
     main()

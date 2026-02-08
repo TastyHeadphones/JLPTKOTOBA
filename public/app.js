@@ -165,7 +165,7 @@ function init() {
       render();
     });
 
-  kuromoji.builder({ dicPath: 'https://unpkg.com/kuromoji@0.1.2/dict/' })
+  kuromoji.builder({ dicPath: 'kuromoji-dict/' })
     .build((err, tok) => {
       if (err) {
         console.error(err);

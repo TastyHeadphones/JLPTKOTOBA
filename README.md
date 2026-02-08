@@ -18,6 +18,9 @@ python3 -m http.server 8000
 ```
 然后访问：`http://localhost:8000`
 
+## 假名说明
+已内置本地 Kuromoji 字典（`public/kuromoji-dict/`），无需联网即可显示汉字上方假名。
+
 ## 重新生成数据
 ```bash
 python3 /Users/young/Github/JLPTKOTOBA/scripts/build_site.py
