@@ -9,7 +9,8 @@
 ## 目录结构
 - `PDF/`：原始词汇表 PDF
 - `scripts/build_site.py`：解析 PDF 并生成数据
-- `public/`：静态站点（`index.html`、`styles.css`、`app.js`、`words.json`）
+- `public/`：静态站点（`index.html`、`styles.css`、`app.js`）
+- `public/data/`：按来源与分页切分后的词条数据
 
 ## 本地运行
 ```bash
@@ -32,4 +33,5 @@ python3 /Users/young/Github/JLPTKOTOBA/scripts/build_site.py
 
 ## 说明
 - 英文释义优先来自 JMdict（由脚本下载并解析）。
-- 未命中英文释义的词条会显示 `—`，避免页面初始化时的大量在线请求。
+- 未命中英文释义的词条会显示 `—`。
+- 前端按来源文件与分页加载词条，避免一次性加载全部数据导致卡顿或崩溃。

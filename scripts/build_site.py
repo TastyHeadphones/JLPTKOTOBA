@@ -18,6 +18,7 @@ JMDICT_GZ = DATA_DIR / 'JMdict_e.gz'
 JMDICT_URL = 'https://www.edrdg.org/pub/Nihongo/JMdict_e.gz'
 KANJI_RE = re.compile(r'[\u4e00-\u9faf々〆ヵヶ]')
 KKS = kakasi()
+CHUNK_SIZE = 120
 
 
 def download_if_missing(url, path):
@@ -318,6 +319,10 @@ def make_ruby_html(text):
     return ''.join(parts)
 
 
+def source_key(source_name):
+    return source_name.replace('.pdf', '')
+
+
 def main():
     entries = parse_pdfs()
     kanji_map, reading_map = build_jmdict_maps()
@@ -343,10 +348,41 @@ def main():
         })
 
     PUBLIC_DIR.mkdir(parents=True, exist_ok=True)
+    # Keep a full dump for offline inspection.
     with open(PUBLIC_DIR / 'words.json', 'w', encoding='utf-8') as f:
-        json.dump(out, f, ensure_ascii=False, indent=2)
+        json.dump(out, f, ensure_ascii=False)
 
-    print(f'Wrote {len(out)} entries to {PUBLIC_DIR / "words.json"}')
+    data_dir = PUBLIC_DIR / 'data'
+    data_dir.mkdir(parents=True, exist_ok=True)
+
+    by_source = {}
+    for item in out:
+        key = source_key(item['source'])
+        by_source.setdefault(key, []).append(item)
+
+    index = {'sources': []}
+    for key in sorted(by_source.keys()):
+        items = by_source[key]
+        page_count = (len(items) + CHUNK_SIZE - 1) // CHUNK_SIZE
+
+        for page in range(page_count):
+            chunk = items[page * CHUNK_SIZE:(page + 1) * CHUNK_SIZE]
+            chunk_path = data_dir / f'{key}_p{page + 1}.json'
+            with open(chunk_path, 'w', encoding='utf-8') as f:
+                json.dump(chunk, f, ensure_ascii=False)
+
+        index['sources'].append({
+            'id': key,
+            'label': key,
+            'count': len(items),
+            'pages': page_count,
+            'chunk_prefix': f'{key}_p'
+        })
+
+    with open(data_dir / 'index.json', 'w', encoding='utf-8') as f:
+        json.dump(index, f, ensure_ascii=False)
+
+    print(f'Wrote {len(out)} entries into chunk files under {data_dir}')
 
 
 if __name__ == '__main__':

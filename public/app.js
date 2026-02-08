@@ -8,9 +8,12 @@ const loadMoreBtn = document.getElementById('loadMoreBtn');
 const furiganaStatus = document.getElementById('furiganaStatus');
 
 const PAGE_SIZE = 80;
+const SEARCH_DEBOUNCE_MS = 250;
 
-let words = [];
-let currentPage = 1;
+let sourceMeta = [];
+let currentSourceId = '';
+const sourceState = new Map();
+let searchTimer = null;
 
 function speak(text) {
   if (!('speechSynthesis' in window)) {
@@ -23,21 +26,59 @@ function speak(text) {
   window.speechSynthesis.speak(utter);
 }
 
-function getFilteredWords() {
-  const q = searchInput.value.trim().toLowerCase();
-  const source = sourceFilter.value;
+function getMeta(sourceId) {
+  return sourceMeta.find((s) => s.id === sourceId) || null;
+}
 
-  return words.filter((w) => {
-    const matchesSource = source === 'all' || w.source === source;
-    if (!matchesSource) return false;
-    if (!q) return true;
+function getState(sourceId) {
+  if (!sourceState.has(sourceId)) {
+    sourceState.set(sourceId, {
+      items: [],
+      loadedPages: 0,
+      renderPage: 1,
+      loading: false,
+      loadAllRequested: false,
+    });
+  }
+  return sourceState.get(sourceId);
+}
 
-    const term = (w.term || '').toLowerCase();
-    const zh = (w.zh || '').toLowerCase();
-    const en = (w.en || '').toLowerCase();
-    const example = (w.example || '').toLowerCase();
-    return term.includes(q) || zh.includes(q) || en.includes(q) || example.includes(q);
-  });
+async function fetchChunk(sourceId, page) {
+  const res = await fetch(`data/${sourceId}_p${page}.json`);
+  if (!res.ok) {
+    throw new Error(`加载分片失败: ${sourceId} p${page}`);
+  }
+  return res.json();
+}
+
+async function loadUntil(sourceId, targetPages) {
+  const meta = getMeta(sourceId);
+  if (!meta) return;
+
+  const state = getState(sourceId);
+  if (state.loading) return;
+
+  state.loading = true;
+  try {
+    while (state.loadedPages < targetPages && state.loadedPages < meta.pages) {
+      const nextPage = state.loadedPages + 1;
+      const chunk = await fetchChunk(sourceId, nextPage);
+      state.items.push(...chunk);
+      state.loadedPages = nextPage;
+    }
+  } finally {
+    state.loading = false;
+  }
+}
+
+async function loadAllForSearch(sourceId) {
+  const meta = getMeta(sourceId);
+  const state = getState(sourceId);
+  if (!meta || state.loadAllRequested || state.loadedPages >= meta.pages) return;
+
+  state.loadAllRequested = true;
+  await loadUntil(sourceId, meta.pages);
+  render();
 }
 
 function setJapaneseContent(el, plain, rubyHtml) {
@@ -48,9 +89,24 @@ function setJapaneseContent(el, plain, rubyHtml) {
   }
 }
 
+function getFilteredWords(items) {
+  const q = searchInput.value.trim().toLowerCase();
+  if (!q) return items;
+
+  return items.filter((w) => {
+    const term = (w.term || '').toLowerCase();
+    const zh = (w.zh || '').toLowerCase();
+    const en = (w.en || '').toLowerCase();
+    const example = (w.example || '').toLowerCase();
+    return term.includes(q) || zh.includes(q) || en.includes(q) || example.includes(q);
+  });
+}
+
 function render() {
-  const filtered = getFilteredWords();
-  const visibleCount = Math.min(filtered.length, currentPage * PAGE_SIZE);
+  const meta = getMeta(currentSourceId);
+  const state = getState(currentSourceId);
+  const filtered = getFilteredWords(state.items);
+  const visibleCount = Math.min(filtered.length, state.renderPage * PAGE_SIZE);
   const visible = filtered.slice(0, visibleCount);
 
   countEl.textContent = `${visibleCount}/${filtered.length}`;
@@ -79,45 +135,102 @@ function render() {
   });
 
   listEl.appendChild(fragment);
-  loadMoreBtn.hidden = visibleCount >= filtered.length;
+
+  const hasMoreRendered = visibleCount < filtered.length;
+  const hasMoreSourcePages = !!meta && state.loadedPages < meta.pages;
+  loadMoreBtn.hidden = !hasMoreRendered && !hasMoreSourcePages;
 }
 
-function initSources() {
-  const sources = Array.from(new Set(words.map((w) => w.source))).sort();
-  sources.forEach((src) => {
+function resetAndRender() {
+  const state = getState(currentSourceId);
+  state.renderPage = 1;
+  render();
+}
+
+async function onSourceChange() {
+  currentSourceId = sourceFilter.value;
+  const state = getState(currentSourceId);
+
+  if (state.loadedPages === 0) {
+    await loadUntil(currentSourceId, 1);
+  }
+
+  state.renderPage = 1;
+  render();
+
+  if (searchInput.value.trim()) {
+    loadAllForSearch(currentSourceId);
+  }
+}
+
+async function onLoadMore() {
+  const meta = getMeta(currentSourceId);
+  const state = getState(currentSourceId);
+  if (!meta) return;
+
+  state.renderPage += 1;
+  const needVisible = state.renderPage * PAGE_SIZE;
+  const filteredCount = getFilteredWords(state.items).length;
+  if (filteredCount < needVisible && state.loadedPages < meta.pages) {
+    await loadUntil(currentSourceId, state.loadedPages + 1);
+  }
+  render();
+}
+
+function initSourceFilter() {
+  sourceFilter.innerHTML = '';
+  sourceMeta.forEach((meta) => {
     const opt = document.createElement('option');
-    opt.value = src;
-    opt.textContent = src.replace('wordlist.pdf', '');
+    opt.value = meta.id;
+    opt.textContent = `${meta.label} (${meta.count})`;
     sourceFilter.appendChild(opt);
   });
 }
 
-function resetAndRender() {
-  currentPage = 1;
+async function init() {
+  furiganaStatus.textContent = '假名模式：预生成（稳定）';
+
+  const res = await fetch('data/index.json');
+  if (!res.ok) {
+    furiganaStatus.textContent = '数据索引加载失败';
+    return;
+  }
+
+  const index = await res.json();
+  sourceMeta = index.sources || [];
+  if (!sourceMeta.length) {
+    furiganaStatus.textContent = '没有可用词条数据';
+    return;
+  }
+
+  initSourceFilter();
+  currentSourceId = sourceMeta[0].id;
+  sourceFilter.value = currentSourceId;
+
+  await loadUntil(currentSourceId, 1);
   render();
 }
 
-function init() {
-  furiganaStatus.textContent = '假名模式：使用预生成数据（稳定）';
-
-  fetch('words.json')
-    .then((res) => res.json())
-    .then((data) => {
-      words = data;
-      initSources();
-      render();
-    })
-    .catch((err) => {
-      furiganaStatus.textContent = `数据加载失败：${err.message}`;
-    });
-}
-
-searchInput.addEventListener('input', resetAndRender);
-sourceFilter.addEventListener('change', resetAndRender);
-furiganaToggle.addEventListener('change', render);
-loadMoreBtn.addEventListener('click', () => {
-  currentPage += 1;
-  render();
+searchInput.addEventListener('input', () => {
+  resetAndRender();
+  if (searchTimer) {
+    clearTimeout(searchTimer);
+  }
+  searchTimer = setTimeout(() => {
+    loadAllForSearch(currentSourceId);
+  }, SEARCH_DEBOUNCE_MS);
 });
 
-init();
+sourceFilter.addEventListener('change', () => {
+  onSourceChange();
+});
+
+furiganaToggle.addEventListener('change', render);
+loadMoreBtn.addEventListener('click', () => {
+  onLoadMore();
+});
+
+init().catch((err) => {
+  console.error(err);
+  furiganaStatus.textContent = `初始化失败：${err.message}`;
+});
