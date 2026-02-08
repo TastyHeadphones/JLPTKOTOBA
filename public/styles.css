@@ -1,0 +1,222 @@
+:root {
+  --bg-1: #f7f3ee;
+  --bg-2: #efe7dd;
+  --ink: #1b1b1b;
+  --muted: #5a5a5a;
+  --accent: #c0563a;
+  --accent-2: #2d6a4f;
+  --card: #ffffff;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "M PLUS 1p", system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--bg-1);
+}
+
+.bg {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(900px circle at 10% 20%, rgba(192, 86, 58, 0.08), transparent 60%),
+    radial-gradient(700px circle at 85% 20%, rgba(45, 106, 79, 0.10), transparent 55%),
+    linear-gradient(140deg, var(--bg-1), var(--bg-2));
+  z-index: -1;
+}
+
+main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 48px 24px 72px;
+}
+
+header {
+  display: grid;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.title-block h1 {
+  font-family: "Shippori Mincho", serif;
+  font-weight: 600;
+  font-size: clamp(2rem, 4vw, 3rem);
+  margin: 0 0 8px;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  color: var(--accent);
+  margin: 0 0 8px;
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--muted);
+}
+
+.controls {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.65);
+  border-radius: 16px;
+  backdrop-filter: blur(6px);
+  box-shadow: var(--shadow);
+}
+
+.search input {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 1rem;
+  border: 1px solid #ded7cd;
+  border-radius: 12px;
+  background: white;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+}
+
+.filters label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.filters select {
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid #ded7cd;
+  background: #fff;
+}
+
+.toggle input {
+  accent-color: var(--accent);
+}
+
+.stats {
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
+.list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
+}
+
+.card {
+  background: var(--card);
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 14px;
+  position: relative;
+  overflow: hidden;
+}
+
+.card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(192, 86, 58, 0.08);
+  border-radius: 18px;
+  pointer-events: none;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.speak {
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  padding: 0;
+}
+
+.speak.term {
+  font-size: 1.35rem;
+  font-family: "Shippori Mincho", serif;
+}
+
+.speak.example {
+  font-size: 1rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.speak:hover {
+  color: var(--accent);
+}
+
+.badge {
+  font-size: 0.72rem;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(45, 106, 79, 0.12);
+  color: var(--accent-2);
+  font-weight: 600;
+}
+
+.meanings {
+  display: grid;
+  gap: 8px;
+}
+
+.meaning {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 0.95rem;
+}
+
+.meaning .label {
+  width: 60px;
+  color: var(--muted);
+}
+
+.example-block {
+  display: grid;
+  gap: 6px;
+}
+
+.example-block .label {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+ruby rt {
+  font-size: 0.6em;
+  color: var(--accent-2);
+}
+
+@media (max-width: 640px) {
+  main {
+    padding: 32px 18px 48px;
+  }
+
+  .controls {
+    padding: 16px;
+  }
+}

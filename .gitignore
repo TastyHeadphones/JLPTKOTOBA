@@ -53,3 +53,7 @@ wheels/
 .vscode/
 *.swp
 *.swo
+
+# Data downloads
+/data/JMdict_e.gz
+/data/jpn-eng.zip

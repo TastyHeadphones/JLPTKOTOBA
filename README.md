@@ -1,82 +1,31 @@
-# JLPT Kotoba (日本語語彙)
+# JLPTKOTOBA
 
-A premium, modern web application for mastering JLPT (Japanese Language Proficiency Test) vocabulary, featuring native audio, furigana transparency, and example sentences.
+从 `PDF` 目录内的词汇表 PDF 提取词条，生成一个可检索的静态网页，支持：
+- 中文释义 + 英文释义
+- 日文例句
+- 汉字假名（Furigana）
+- 点击词条/例句进行 TTS 朗读
 
-## Features
+## 目录结构
+- `PDF/`：原始词汇表 PDF
+- `scripts/build_site.py`：解析 PDF 并生成数据
+- `public/`：静态站点（`index.html`、`styles.css`、`app.js`、`words.json`）
 
-- 🌸 **Premium UI**: Beautiful, clean interface designed with Japanese aesthetics.
-- 🔊 **Text-to-Speech**: Native-sounding audio for every word and example sentence.
-- 📖 **Furigana Support**: Clear reading aids above Kanji.
-- 🏷️ **Level Filtering**: Easily filter vocabulary by JLPT levels (N5-N1).
-- 🔍 **Search**: Instant search across words, readings, and meanings.
-- 📱 **Responsive Design**: Works perfectly on desktop and mobile devices.
-
-## Project Structure
-
-```
-JLPTKOTOBA/
-├── jlpt-web/          # React + Vite Web Application
-│   ├── src/
-│   │   ├── data/      # JSON vocabulary data
-│   │   └── components/# UI Components
-│   └── ...
-├── scripts/           # Data processing scripts
-│   ├── parse_vocab.py # Converts markdown to JSON
-│   └── enrich_vocab.py# Generates examples (LLM helper)
-└── vocab_master.md    # Source of Truth Data
-```
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js (v18+)
-- Python 3.x
-
-### Installation
-
-1.  **Clone the repository**
-2.  **Install dependencies**:
-    ```bash
-    cd jlpt-web
-    npm install
-    ```
-
-### Running Locally
-
+## 本地运行
 ```bash
-cd jlpt-web
-npm run dev
+cd /Users/young/Github/JLPTKOTOBA/public
+python3 -m http.server 8000
 ```
-Open [http://localhost:5173](http://localhost:5173) to view the app.
+然后访问：`http://localhost:8000`
 
-## Data Management
-
-### Updating Vocabulary
-The source of truth is `vocab_master.md`. If you edit this file, update the web app data by running:
-
+## 重新生成数据
 ```bash
-# From project root
-python3 scripts/parse_vocab.py
+python3 /Users/young/Github/JLPTKOTOBA/scripts/build_site.py
 ```
 
-### Enriching Data (Example Sentences)
-To generate example sentences using an LLM (Mock/Demo mode by default):
+## GitHub Pages 部署
+仓库内已提供 GitHub Actions 部署配置，推送到 `main` 分支后自动发布。
 
-```bash
-# From project root
-python3 scripts/enrich_vocab.py
-```
-> **Note**: Edit `scripts/enrich_vocab.py` to connect to your OpenAI/Anthropic API key for real generated sentences.
-
-## Deployment
-
-This project includes a GitHub Actions workflow `.github/workflows/deploy.yml` that automatically builds and deploys the application to **GitHub Pages** when you push to the `main` branch.
-
-**Important**: 
-1. Go to your repository **Settings > Pages**.
-2. Set "Source" to **GitHub Actions**.
-
-## License
-
-MIT
+## 说明
+- 英文释义优先来自 JMdict（由脚本下载并解析）。
+- 若未命中英文释义，网页端会用 MyMemory 翻译 API 生成并缓存（保存在浏览器 `localStorage`）。

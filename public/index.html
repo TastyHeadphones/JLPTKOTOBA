@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>JLPT 단어 정리</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+1p:wght@300;400;600;700&family=Shippori+Mincho:wght@400;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div class="bg"></div>
+  <main>
+    <header>
+      <div class="title-block">
+        <p class="eyebrow">TRY! 日本語 N1 語彙</p>
+        <h1>PDF 词汇整理</h1>
+        <p class="subtitle">中文与英文释义 + 日文例句（点击可朗读）。</p>
+      </div>
+      <div class="controls">
+        <div class="search">
+          <input id="searchInput" type="search" placeholder="搜索单词 / 释义 / 例句" />
+        </div>
+        <div class="filters">
+          <label>
+            文件
+            <select id="sourceFilter">
+              <option value="all">全部</option>
+            </select>
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="furiganaToggle" checked />
+            <span>显示假名</span>
+          </label>
+        </div>
+        <div class="stats">
+          <span id="count">0</span> 词条
+        </div>
+      </div>
+    </header>
+
+    <section id="list" class="list"></section>
+  </main>
+
+  <template id="cardTemplate">
+    <article class="card">
+      <div class="card-header">
+        <button class="speak term"></button>
+        <span class="badge"></span>
+      </div>
+      <div class="meanings">
+        <div class="meaning"><span class="label">中文</span><span class="value zh"></span></div>
+        <div class="meaning"><span class="label">English</span><span class="value en"></span></div>
+      </div>
+      <div class="example-block">
+        <span class="label">例句</span>
+        <button class="speak example"></button>
+      </div>
+    </article>
+  </template>
+
+  <script src="https://unpkg.com/kuromoji@0.1.2/dist/kuromoji.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
