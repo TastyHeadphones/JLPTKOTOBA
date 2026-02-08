@@ -35,3 +35,10 @@ python3 /Users/young/Github/JLPTKOTOBA/scripts/build_site.py
 - 英文释义优先来自 JMdict（由脚本下载并解析）。
 - 未命中英文释义的词条会显示 `—`。
 - 前端按来源文件与分页加载词条，避免一次性加载全部数据导致卡顿或崩溃。
+- 页面滚动到底部会自动加载下一批词条（无“加载更多”按钮）。
+
+## OpenAI TTS
+- 页面支持 OpenAI 自然语音（模型：`gpt-4o-mini-tts`）。
+- 需要在页面的 `OpenAI Key` 输入框填入你自己的 API Key（仅保存在当前浏览器会话）。
+- 未填写 Key 时会自动回退到浏览器内置 TTS。
+- 语音为 AI 生成音频。

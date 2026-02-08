@@ -102,6 +102,32 @@ header {
   background: #fff;
 }
 
+.tts-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+}
+
+.tts-controls label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.tts-controls input,
+.tts-controls select {
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid #ded7cd;
+  background: #fff;
+}
+
+.tts-controls .tts-key input {
+  min-width: 210px;
+}
+
 .toggle input {
   accent-color: var(--accent);
 }
@@ -123,30 +149,8 @@ header {
   gap: 18px;
 }
 
-.pagination {
-  display: flex;
-  justify-content: center;
-  margin-top: 24px;
-}
-
-.load-more {
-  border: 1px solid rgba(192, 86, 58, 0.4);
-  background: rgba(255, 255, 255, 0.92);
-  color: var(--ink);
-  border-radius: 999px;
-  padding: 10px 22px;
-  font-size: 0.95rem;
-  cursor: pointer;
-  box-shadow: var(--shadow);
-}
-
-.load-more:hover {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-.load-more[hidden] {
-  display: none;
+.scroll-sentinel {
+  height: 40px;
 }
 
 .card {
