@@ -44,3 +44,4 @@ python3 /Users/young/Github/JLPTKOTOBA/scripts/build_site.py
 - 语音为 AI 生成音频。
 - Voice 名称使用 Gemini 官方列表（同一套 voice 可用于日语输入）。
 - 默认 voice 为 `Iapetus`（发音清晰），可在页面切换。
+- 浏览器回退语音会自动优先选择更自然的日语 voice（如 Siri/Natural/Kyoko/Nanami 等可用项）。

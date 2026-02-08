@@ -27,9 +27,38 @@ let observer = null;
 let autoLoading = false;
 let ttsRequestController = null;
 let activeAudio = null;
+let bestBrowserVoice = null;
 
 const sourceState = new Map();
 const audioCache = new Map();
+
+function scoreBrowserVoice(v) {
+  const name = (v?.name || '').toLowerCase();
+  const lang = (v?.lang || '').toLowerCase();
+  let score = 0;
+
+  if (lang.startsWith('ja')) score += 50;
+  if (/siri/.test(name)) score += 120;
+  if (/natural/.test(name)) score += 90;
+  if (/kyoko|nanami|otoya|ja-jp/.test(name)) score += 80;
+  if (/enhanced|premium|high quality/.test(name)) score += 60;
+  if (v?.default) score += 15;
+
+  return score;
+}
+
+function refreshBestBrowserVoice() {
+  if (!('speechSynthesis' in window)) {
+    bestBrowserVoice = null;
+    return;
+  }
+  const voices = window.speechSynthesis.getVoices() || [];
+  if (!voices.length) {
+    bestBrowserVoice = null;
+    return;
+  }
+  bestBrowserVoice = [...voices].sort((a, b) => scoreBrowserVoice(b) - scoreBrowserVoice(a))[0] || null;
+}
 
 function getMeta(sourceId) {
   return sourceMeta.find((s) => s.id === sourceId) || null;
@@ -311,10 +340,20 @@ function speakWithBrowser(text, reason = GEMINI_FALLBACK_STATUS) {
     alert('浏览器不支持 TTS');
     return;
   }
+  refreshBestBrowserVoice();
   const utter = new SpeechSynthesisUtterance(text);
   utter.lang = 'ja-JP';
+  if (bestBrowserVoice) {
+    utter.voice = bestBrowserVoice;
+  }
+  utter.rate = 0.95;
+  utter.pitch = 1.0;
   window.speechSynthesis.speak(utter);
-  setTtsStatus(reason);
+  if (bestBrowserVoice) {
+    setTtsStatus(`${reason} (${bestBrowserVoice.name})`);
+  } else {
+    setTtsStatus(reason);
+  }
 }
 
 async function speak(text) {
@@ -507,6 +546,12 @@ async function init() {
   render();
   setupInfiniteScroll();
   initKeyAndVoice();
+  refreshBestBrowserVoice();
+  if ('speechSynthesis' in window && 'onvoiceschanged' in window.speechSynthesis) {
+    window.speechSynthesis.onvoiceschanged = () => {
+      refreshBestBrowserVoice();
+    };
+  }
 
   if (getGeminiKey()) {
     setTtsStatus(`语音：Gemini ${voiceSelect.value || GEMINI_DEFAULT_VOICE}`);
