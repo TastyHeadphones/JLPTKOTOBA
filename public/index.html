@@ -23,12 +23,14 @@
           <input id="searchInput" type="search" placeholder="搜索单词 / 释义 / 例句" />
         </div>
         <div class="filters">
-          <label>
-            文件
-            <select id="sourceFilter">
-              <option value="all">全部</option>
-            </select>
-          </label>
+          <div class="source-filter-group">
+            <label for="sourceFilter">文件（可多选）</label>
+            <select id="sourceFilter" multiple size="5"></select>
+            <div class="source-filter-actions">
+              <button id="selectAllSources" type="button">全选</button>
+              <button id="clearSources" type="button">清空</button>
+            </div>
+          </div>
           <label class="toggle">
             <input type="checkbox" id="furiganaToggle" checked />
             <span>显示假名</span>
@@ -84,6 +86,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=20260208-8"></script>
+  <script src="app.js?v=20260208-9"></script>
 </body>
 </html>

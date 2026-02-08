@@ -2,6 +2,8 @@ const listEl = document.getElementById('list');
 const template = document.getElementById('cardTemplate');
 const searchInput = document.getElementById('searchInput');
 const sourceFilter = document.getElementById('sourceFilter');
+const selectAllSourcesBtn = document.getElementById('selectAllSources');
+const clearSourcesBtn = document.getElementById('clearSources');
 const countEl = document.getElementById('count');
 const furiganaToggle = document.getElementById('furiganaToggle');
 const scrollSentinel = document.getElementById('scrollSentinel');
@@ -11,6 +13,7 @@ const cloudTtsKeyInput = document.getElementById('cloudTtsKeyInput');
 const voiceSelect = document.getElementById('voiceSelect');
 
 const PAGE_SIZE = 80;
+const BATCH_MARK_INTERVAL = 200;
 const SEARCH_DEBOUNCE_MS = 250;
 
 const CLOUD_TTS_API_URL = 'https://texttospeech.googleapis.com/v1/text:synthesize';
@@ -21,7 +24,8 @@ const CLOUD_TTS_DEFAULT_VOICE = 'ja-JP-Chirp3-HD-Iapetus';
 const MAX_AUDIO_CACHE = 16;
 
 let sourceMeta = [];
-let currentSourceId = '';
+let selectedSourceIds = [];
+let renderPage = 1;
 let searchTimer = null;
 let observer = null;
 let autoLoading = false;
@@ -69,12 +73,48 @@ function getState(sourceId) {
     sourceState.set(sourceId, {
       items: [],
       loadedPages: 0,
-      renderPage: 1,
       loading: false,
       loadAllRequested: false,
     });
   }
   return sourceState.get(sourceId);
+}
+
+function getSelectedSourceIdsFromControl() {
+  return Array.from(sourceFilter.selectedOptions).map((opt) => opt.value);
+}
+
+function setSelectedSourceIds(ids) {
+  selectedSourceIds = sourceMeta
+    .map((meta) => meta.id)
+    .filter((id) => ids.includes(id));
+}
+
+function selectAllSources() {
+  Array.from(sourceFilter.options).forEach((opt) => {
+    opt.selected = true;
+  });
+  setSelectedSourceIds(getSelectedSourceIdsFromControl());
+}
+
+function getSelectedMetas() {
+  return sourceMeta.filter((meta) => selectedSourceIds.includes(meta.id));
+}
+
+function getCombinedItems() {
+  const items = [];
+  getSelectedMetas().forEach((meta) => {
+    const state = getState(meta.id);
+    items.push(...state.items);
+  });
+  return items;
+}
+
+function hasAnyMoreSourcePages() {
+  return getSelectedMetas().some((meta) => {
+    const state = getState(meta.id);
+    return state.loadedPages < meta.pages;
+  });
 }
 
 async function fetchChunk(sourceId, page) {
@@ -112,6 +152,20 @@ async function loadAllForSearch(sourceId) {
 
   state.loadAllRequested = true;
   await loadUntil(sourceId, meta.pages);
+}
+
+async function loadSelectedUntil(targetPages = 1) {
+  for (const sourceId of selectedSourceIds) {
+    const state = getState(sourceId);
+    if (state.loadedPages >= targetPages) continue;
+    await loadUntil(sourceId, targetPages);
+  }
+}
+
+async function loadAllForSearchSelected() {
+  for (const sourceId of selectedSourceIds) {
+    await loadAllForSearch(sourceId);
+  }
   render();
 }
 
@@ -408,17 +462,37 @@ async function speak(text) {
 }
 
 function render() {
-  const meta = getMeta(currentSourceId);
-  const state = getState(currentSourceId);
-  const filtered = getFilteredWords(state.items);
-  const visibleCount = Math.min(filtered.length, state.renderPage * PAGE_SIZE);
+  if (!selectedSourceIds.length) {
+    countEl.textContent = '0/0';
+    listEl.innerHTML = '';
+    const placeholder = document.createElement('div');
+    placeholder.className = 'batch-marker';
+    placeholder.textContent = '请先选择至少一个文件。';
+    listEl.appendChild(placeholder);
+    scrollSentinel.style.display = 'none';
+    return;
+  }
+
+  const filtered = getFilteredWords(getCombinedItems());
+  const visibleCount = Math.min(filtered.length, renderPage * PAGE_SIZE);
   const visible = filtered.slice(0, visibleCount);
 
   countEl.textContent = `${visibleCount}/${filtered.length}`;
   listEl.innerHTML = '';
 
   const fragment = document.createDocumentFragment();
-  visible.forEach((w) => {
+  visible.forEach((w, index) => {
+    const serial = index + 1;
+    if ((serial - 1) % BATCH_MARK_INTERVAL === 0) {
+      const marker = document.createElement('div');
+      const start = serial;
+      const end = Math.min(serial + BATCH_MARK_INTERVAL - 1, filtered.length);
+      const group = Math.floor((serial - 1) / BATCH_MARK_INTERVAL) + 1;
+      marker.className = 'batch-marker';
+      marker.textContent = `序号 ${group} · ${start}-${end}`;
+      fragment.appendChild(marker);
+    }
+
     const node = template.content.cloneNode(true);
     const termBtn = node.querySelector('.speak.term');
     const exampleBtn = node.querySelector('.speak.example');
@@ -446,50 +520,52 @@ function render() {
   listEl.appendChild(fragment);
 
   const hasMoreRendered = visibleCount < filtered.length;
-  const hasMoreSourcePages = !!meta && state.loadedPages < meta.pages;
+  const hasMoreSourcePages = hasAnyMoreSourcePages();
   scrollSentinel.style.display = hasMoreRendered || hasMoreSourcePages ? 'block' : 'none';
 }
 
 function resetAndRender() {
-  const state = getState(currentSourceId);
-  state.renderPage = 1;
+  renderPage = 1;
   render();
 }
 
 async function onSourceChange() {
-  currentSourceId = sourceFilter.value;
-  const state = getState(currentSourceId);
+  setSelectedSourceIds(getSelectedSourceIdsFromControl());
+  renderPage = 1;
 
-  if (state.loadedPages === 0) {
-    await loadUntil(currentSourceId, 1);
+  if (selectedSourceIds.length) {
+    await loadSelectedUntil(1);
   }
-
-  state.renderPage = 1;
   render();
 
   if (searchInput.value.trim()) {
-    loadAllForSearch(currentSourceId);
+    await loadAllForSearchSelected();
   }
 }
 
 async function autoLoadNextPage() {
-  const meta = getMeta(currentSourceId);
-  const state = getState(currentSourceId);
-  if (!meta || autoLoading) return;
+  if (autoLoading || !selectedSourceIds.length) return;
 
-  const filtered = getFilteredWords(state.items);
-  const visibleCount = Math.min(filtered.length, state.renderPage * PAGE_SIZE);
+  const filtered = getFilteredWords(getCombinedItems());
+  const visibleCount = Math.min(filtered.length, renderPage * PAGE_SIZE);
   const hasMoreRendered = visibleCount < filtered.length;
-  const hasMoreSourcePages = state.loadedPages < meta.pages;
+  const hasMoreSourcePages = hasAnyMoreSourcePages();
   if (!hasMoreRendered && !hasMoreSourcePages) return;
 
   autoLoading = true;
   try {
     if (hasMoreRendered) {
-      state.renderPage += 1;
+      renderPage += 1;
     } else {
-      await loadUntil(currentSourceId, state.loadedPages + 1);
-      state.renderPage += 1;
+      const nextMeta = getSelectedMetas().find((meta) => {
+        const state = getState(meta.id);
+        return state.loadedPages < meta.pages;
+      });
+      if (nextMeta) {
+        const nextState = getState(nextMeta.id);
+        await loadUntil(nextMeta.id, nextState.loadedPages + 1);
+        renderPage += 1;
+      }
     }
     render();
   } finally {
@@ -515,6 +591,8 @@ function setupInfiniteScroll() {
 
 function initSourceFilter() {
   sourceFilter.innerHTML = '';
+  sourceFilter.multiple = true;
+  sourceFilter.size = Math.min(8, Math.max(4, sourceMeta.length));
   sourceMeta.forEach((meta) => {
     const opt = document.createElement('option');
     opt.value = meta.id;
@@ -584,10 +662,9 @@ async function init() {
   }
 
   initSourceFilter();
-  currentSourceId = sourceMeta[0].id;
-  sourceFilter.value = currentSourceId;
-
-  await loadUntil(currentSourceId, 1);
+  selectAllSources();
+  renderPage = 1;
+  await loadSelectedUntil(1);
   render();
   setupInfiniteScroll();
   initKeyAndVoice();
@@ -618,7 +695,9 @@ searchInput.addEventListener('input', () => {
   }
   searchTimer = setTimeout(() => {
     if (searchInput.value.trim()) {
-      loadAllForSearch(currentSourceId);
+      loadAllForSearchSelected().catch((err) => {
+        console.error(err);
+      });
     }
   }, SEARCH_DEBOUNCE_MS);
 });
@@ -629,6 +708,28 @@ sourceFilter.addEventListener('change', () => {
     furiganaStatus.textContent = `切换来源失败：${err.message}`;
   });
 });
+
+if (selectAllSourcesBtn) {
+  selectAllSourcesBtn.addEventListener('click', () => {
+    selectAllSources();
+    onSourceChange().catch((err) => {
+      console.error(err);
+      furiganaStatus.textContent = `切换来源失败：${err.message}`;
+    });
+  });
+}
+
+if (clearSourcesBtn) {
+  clearSourcesBtn.addEventListener('click', () => {
+    Array.from(sourceFilter.options).forEach((opt) => {
+      opt.selected = false;
+    });
+    onSourceChange().catch((err) => {
+      console.error(err);
+      furiganaStatus.textContent = `切换来源失败：${err.message}`;
+    });
+  });
+}
 
 furiganaToggle.addEventListener('change', render);
 
