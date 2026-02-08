@@ -170,7 +170,7 @@ function init() {
     return;
   }
 
-  kuromoji.builder({ dicPath: 'kuromoji-dict/' })
+  kuromoji.builder({ dicPath: 'https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/' })
     .build((err, tok) => {
       if (err) {
         console.error(err);
