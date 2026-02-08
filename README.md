@@ -19,10 +19,11 @@ python3 -m http.server 8000
 然后访问：`http://localhost:8000`
 
 ## 假名说明
-假名由 Kuromoji 库在线词典生成（CDN）。
+假名在构建阶段由 `pykakasi` 预生成，页面直接渲染，不依赖在线词典。
 
 ## 重新生成数据
 ```bash
+python3 -m pip install pykakasi
 python3 /Users/young/Github/JLPTKOTOBA/scripts/build_site.py
 ```
 

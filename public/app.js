@@ -7,46 +7,10 @@ const furiganaToggle = document.getElementById('furiganaToggle');
 const loadMoreBtn = document.getElementById('loadMoreBtn');
 const furiganaStatus = document.getElementById('furiganaStatus');
 
-const PAGE_SIZE = 120;
-const KUROMOJI_SCRIPT_URLS = [
-  'https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/build/kuromoji.js',
-  'https://unpkg.com/kuromoji@0.1.2/build/kuromoji.js'
-];
-const KUROMOJI_DICT_PATHS = [
-  'https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/',
-  'https://unpkg.com/kuromoji@0.1.2/dict/'
-];
+const PAGE_SIZE = 80;
 
 let words = [];
-let tokenizer = null;
 let currentPage = 1;
-const rubyCache = new Map();
-
-function hasKanji(text) {
-  return /[\u4e00-\u9faf]/.test(text);
-}
-
-function kataToHira(str) {
-  return str.replace(/[\u30a1-\u30f6]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0x60));
-}
-
-function toRuby(text) {
-  if (!tokenizer || !furiganaToggle.checked) return text;
-  const cacheKey = `${text}::${furiganaToggle.checked}`;
-  if (rubyCache.has(cacheKey)) return rubyCache.get(cacheKey);
-
-  const tokens = tokenizer.tokenize(text);
-  const html = tokens.map((tok) => {
-    if (!tok.reading || !hasKanji(tok.surface_form)) {
-      return tok.surface_form;
-    }
-    const reading = kataToHira(tok.reading);
-    return `<ruby>${tok.surface_form}<rt>${reading}</rt></ruby>`;
-  }).join('');
-
-  rubyCache.set(cacheKey, html);
-  return html;
-}
 
 function speak(text) {
   if (!('speechSynthesis' in window)) {
@@ -76,6 +40,14 @@ function getFilteredWords() {
   });
 }
 
+function setJapaneseContent(el, plain, rubyHtml) {
+  if (furiganaToggle.checked && rubyHtml) {
+    el.innerHTML = rubyHtml;
+  } else {
+    el.textContent = plain || '';
+  }
+}
+
 function render() {
   const filtered = getFilteredWords();
   const visibleCount = Math.min(filtered.length, currentPage * PAGE_SIZE);
@@ -93,10 +65,10 @@ function render() {
     const zh = node.querySelector('.value.zh');
     const en = node.querySelector('.value.en');
 
-    termBtn.innerHTML = toRuby(w.term || '');
+    setJapaneseContent(termBtn, w.term || '', w.term_ruby || '');
     termBtn.addEventListener('click', () => speak(w.term || ''));
 
-    exampleBtn.innerHTML = toRuby(w.example || '');
+    setJapaneseContent(exampleBtn, w.example || '', w.example_ruby || '');
     exampleBtn.addEventListener('click', () => speak(w.example || ''));
 
     badge.textContent = (w.source || '').replace('wordlist.pdf', '');
@@ -125,85 +97,24 @@ function resetAndRender() {
   render();
 }
 
-function loadScript(url) {
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = url;
-    script.async = true;
-    script.onload = () => resolve(url);
-    script.onerror = () => reject(new Error(`script load failed: ${url}`));
-    document.head.appendChild(script);
-  });
-}
-
-async function ensureKuromojiLoaded() {
-  if (typeof kuromoji !== 'undefined') return true;
-
-  for (const url of KUROMOJI_SCRIPT_URLS) {
-    try {
-      await loadScript(url);
-      if (typeof kuromoji !== 'undefined') return true;
-    } catch (err) {
-      console.warn(err.message);
-    }
-  }
-  return false;
-}
-
-function buildTokenizer(dicPath) {
-  return new Promise((resolve, reject) => {
-    kuromoji.builder({ dicPath }).build((err, tok) => {
-      if (err) {
-        reject(err);
-        return;
-      }
-      resolve(tok);
-    });
-  });
-}
-
-async function initFurigana() {
-  furiganaStatus.textContent = '假名加载中...';
-
-  const loaded = await ensureKuromojiLoaded();
-  if (!loaded) {
-    furiganaStatus.textContent = '假名加载失败：库文件不可用';
-    return;
-  }
-
-  for (const dicPath of KUROMOJI_DICT_PATHS) {
-    try {
-      tokenizer = await buildTokenizer(dicPath);
-      rubyCache.clear();
-      furiganaStatus.textContent = '假名已启用';
-      render();
-      return;
-    } catch (err) {
-      console.warn(`dict failed: ${dicPath}`, err);
-    }
-  }
-
-  furiganaStatus.textContent = '假名加载失败：词典不可用';
-}
-
 function init() {
+  furiganaStatus.textContent = '假名模式：使用预生成数据（稳定）';
+
   fetch('words.json')
     .then((res) => res.json())
     .then((data) => {
       words = data;
       initSources();
       render();
+    })
+    .catch((err) => {
+      furiganaStatus.textContent = `数据加载失败：${err.message}`;
     });
-
-  initFurigana();
 }
 
 searchInput.addEventListener('input', resetAndRender);
 sourceFilter.addEventListener('change', resetAndRender);
-furiganaToggle.addEventListener('change', () => {
-  rubyCache.clear();
-  render();
-});
+furiganaToggle.addEventListener('change', render);
 loadMoreBtn.addEventListener('click', () => {
   currentPage += 1;
   render();

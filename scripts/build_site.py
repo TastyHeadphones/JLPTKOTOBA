@@ -3,9 +3,11 @@ import json
 import os
 import re
 import xml.etree.ElementTree as ET
+from html import escape
 from pathlib import Path
 
 import pdfplumber
+from pykakasi import kakasi
 
 ROOT = Path('/Users/young/Github/JLPTKOTOBA')
 PDF_DIR = ROOT / 'PDF'
@@ -14,6 +16,8 @@ PUBLIC_DIR = ROOT / 'public'
 
 JMDICT_GZ = DATA_DIR / 'JMdict_e.gz'
 JMDICT_URL = 'https://www.edrdg.org/pub/Nihongo/JMdict_e.gz'
+KANJI_RE = re.compile(r'[\u4e00-\u9faf々〆ヵヶ]')
+KKS = kakasi()
 
 
 def download_if_missing(url, path):
@@ -302,6 +306,18 @@ def generate_example(term):
     return _pick(noun_templates, raw).format(w=display)
 
 
+def make_ruby_html(text):
+    parts = []
+    for token in KKS.convert(text):
+        orig = token.get('orig', '')
+        hira = token.get('hira', '')
+        if KANJI_RE.search(orig) and hira and hira != orig:
+            parts.append(f'<ruby>{escape(orig)}<rt>{escape(hira)}</rt></ruby>')
+        else:
+            parts.append(escape(orig))
+    return ''.join(parts)
+
+
 def main():
     entries = parse_pdfs()
     kanji_map, reading_map = build_jmdict_maps()
@@ -310,6 +326,7 @@ def main():
     for i, e in enumerate(entries, 1):
         term = e['term']
         zh = e['zh']
+        example = generate_example(term)
 
         gloss = lookup_gloss(term, kanji_map, reading_map)
         en = '; '.join(gloss) if gloss else ''
@@ -317,9 +334,11 @@ def main():
         out.append({
             'id': i,
             'term': term,
+            'term_ruby': make_ruby_html(term),
             'zh': zh,
             'en': en,
-            'example': generate_example(term),
+            'example': example,
+            'example_ruby': make_ruby_html(example),
             'source': e['source']
         })
 
