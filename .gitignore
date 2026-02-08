@@ -57,3 +57,7 @@ wheels/
 # Data downloads
 /data/JMdict_e.gz
 /data/jpn-eng.zip
+/data/jpn_sentences.tsv.bz2
+/data/jpn-eng_links.tsv.bz2
+/data/eng_sentences.tsv.bz2
+/data/ai_examples_cache.json
