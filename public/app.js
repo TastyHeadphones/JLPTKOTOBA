@@ -17,6 +17,7 @@ const GEMINI_MODEL = 'gemini-2.5-flash-preview-tts';
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 const GEMINI_KEY_STORAGE_KEY = 'gemini_api_key_persist';
 const GEMINI_FALLBACK_STATUS = '语音：浏览器回退（未配置 Gemini Key）';
+const GEMINI_DEFAULT_VOICE = 'Iapetus';
 const MAX_AUDIO_CACHE = 16;
 
 let sourceMeta = [];
@@ -229,7 +230,7 @@ function buildPlayableAudioBlob(base64Data, mimeType) {
 }
 
 async function speakWithGemini(text, apiKey) {
-  const voiceName = voiceSelect.value || 'Kore';
+  const voiceName = voiceSelect.value || GEMINI_DEFAULT_VOICE;
   const cacheKey = `${voiceName}::${text}`;
 
   if (audioCache.has(cacheKey)) {
@@ -252,6 +253,9 @@ async function speakWithGemini(text, apiKey) {
       'x-goog-api-key': apiKey,
     },
     body: JSON.stringify({
+      systemInstruction: {
+        parts: [{ text: 'Read the user text in natural Japanese (ja-JP). Keep wording unchanged.' }],
+      },
       contents: [
         {
           parts: [{ text }],
@@ -450,6 +454,10 @@ function initSourceFilter() {
 }
 
 function initKeyAndVoice() {
+  if (!voiceSelect.value) {
+    voiceSelect.value = GEMINI_DEFAULT_VOICE;
+  }
+
   const savedKey = localStorage.getItem(GEMINI_KEY_STORAGE_KEY) || '';
   if (savedKey) {
     geminiKeyInput.value = savedKey;
@@ -458,7 +466,7 @@ function initKeyAndVoice() {
   function syncGeminiKeyStatus() {
     saveGeminiKey();
     if (getGeminiKey()) {
-      setTtsStatus(`语音：Gemini ${voiceSelect.value}`);
+      setTtsStatus(`语音：Gemini ${voiceSelect.value || GEMINI_DEFAULT_VOICE}`);
     } else {
       setTtsStatus(GEMINI_FALLBACK_STATUS);
     }
@@ -469,7 +477,7 @@ function initKeyAndVoice() {
 
   voiceSelect.addEventListener('change', () => {
     if (getGeminiKey()) {
-      setTtsStatus(`语音：Gemini ${voiceSelect.value}`);
+      setTtsStatus(`语音：Gemini ${voiceSelect.value || GEMINI_DEFAULT_VOICE}`);
     }
   });
 }
@@ -501,7 +509,7 @@ async function init() {
   initKeyAndVoice();
 
   if (getGeminiKey()) {
-    setTtsStatus(`语音：Gemini ${voiceSelect.value}`);
+    setTtsStatus(`语音：Gemini ${voiceSelect.value || GEMINI_DEFAULT_VOICE}`);
   }
 }
 

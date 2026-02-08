@@ -42,3 +42,5 @@ python3 /Users/young/Github/JLPTKOTOBA/scripts/build_site.py
 - 需要在页面的 `Gemini Key` 输入框填入你自己的 API Key（会保存在浏览器 `localStorage`）。
 - 未填写 Key 时会自动回退到浏览器内置 TTS。
 - 语音为 AI 生成音频。
+- Voice 名称使用 Gemini 官方列表（同一套 voice 可用于日语输入）。
+- 默认 voice 为 `Iapetus`（发音清晰），可在页面切换。
