@@ -7,23 +7,24 @@ const furiganaToggle = document.getElementById('furiganaToggle');
 const scrollSentinel = document.getElementById('scrollSentinel');
 const furiganaStatus = document.getElementById('furiganaStatus');
 const ttsStatus = document.getElementById('ttsStatus');
-const openaiKeyInput = document.getElementById('openaiKeyInput');
+const geminiKeyInput = document.getElementById('geminiKeyInput');
 const voiceSelect = document.getElementById('voiceSelect');
 
 const PAGE_SIZE = 80;
 const SEARCH_DEBOUNCE_MS = 250;
-const OPENAI_MODEL = 'gpt-4o-mini-tts';
-const OPENAI_TTS_INSTRUCTIONS = 'Speak in natural conversational Japanese with clear pronunciation and moderate pace.';
-const OPENAI_API_URL = 'https://api.openai.com/v1/audio/speech';
-const OPENAI_KEY_STORAGE_KEY = 'openai_api_key_session';
-const MAX_AUDIO_CACHE = 24;
+
+const GEMINI_MODEL = 'gemini-2.5-flash-preview-tts';
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const GEMINI_KEY_STORAGE_KEY = 'gemini_api_key_persist';
+const GEMINI_FALLBACK_STATUS = '语音：浏览器回退（未配置 Gemini Key）';
+const MAX_AUDIO_CACHE = 16;
 
 let sourceMeta = [];
 let currentSourceId = '';
 let searchTimer = null;
 let observer = null;
 let autoLoading = false;
-let openaiRequestController = null;
+let ttsRequestController = null;
 let activeAudio = null;
 
 const sourceState = new Map();
@@ -137,77 +138,170 @@ function putAudioCache(cacheKey, url) {
     const oldest = audioCache.keys().next().value;
     const oldUrl = audioCache.get(oldest);
     audioCache.delete(oldest);
-    if (oldUrl) URL.revokeObjectURL(oldUrl);
+    if (oldUrl) {
+      URL.revokeObjectURL(oldUrl);
+    }
   }
 }
 
-function getOpenAIKey() {
-  return openaiKeyInput.value.trim();
+function getGeminiKey() {
+  return geminiKeyInput.value.trim();
 }
 
-function saveOpenAIKey() {
-  const key = getOpenAIKey();
+function saveGeminiKey() {
+  const key = getGeminiKey();
   if (key) {
-    sessionStorage.setItem(OPENAI_KEY_STORAGE_KEY, key);
+    localStorage.setItem(GEMINI_KEY_STORAGE_KEY, key);
   } else {
-    sessionStorage.removeItem(OPENAI_KEY_STORAGE_KEY);
+    localStorage.removeItem(GEMINI_KEY_STORAGE_KEY);
   }
 }
 
-async function speakWithOpenAI(text, apiKey) {
-  const voice = voiceSelect.value || 'coral';
-  const cacheKey = `${voice}::${text}`;
+function parseSampleRate(mimeType) {
+  const match = /rate=(\d+)/i.exec(mimeType || '');
+  if (!match) return 24000;
+  const value = Number(match[1]);
+  return Number.isFinite(value) && value > 0 ? value : 24000;
+}
+
+function base64ToBytes(input) {
+  const normalized = input.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = normalized + '='.repeat((4 - normalized.length % 4) % 4);
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function pcm16ToWavBlob(pcmBytes, sampleRate) {
+  const numChannels = 1;
+  const bitsPerSample = 16;
+  const blockAlign = (numChannels * bitsPerSample) / 8;
+  const byteRate = sampleRate * blockAlign;
+  const dataSize = pcmBytes.byteLength;
+  const buffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(buffer);
+
+  function writeAscii(offset, text) {
+    for (let i = 0; i < text.length; i += 1) {
+      view.setUint8(offset + i, text.charCodeAt(i));
+    }
+  }
+
+  writeAscii(0, 'RIFF');
+  view.setUint32(4, 36 + dataSize, true);
+  writeAscii(8, 'WAVE');
+  writeAscii(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bitsPerSample, true);
+  writeAscii(36, 'data');
+  view.setUint32(40, dataSize, true);
+
+  new Uint8Array(buffer, 44).set(pcmBytes);
+  return new Blob([buffer], { type: 'audio/wav' });
+}
+
+function buildPlayableAudioBlob(base64Data, mimeType) {
+  const bytes = base64ToBytes(base64Data);
+  const lowerMime = (mimeType || '').toLowerCase();
+
+  if (
+    lowerMime.includes('audio/wav') ||
+    lowerMime.includes('audio/mpeg') ||
+    lowerMime.includes('audio/mp3') ||
+    lowerMime.includes('audio/ogg') ||
+    lowerMime.includes('audio/webm') ||
+    lowerMime.includes('audio/aac')
+  ) {
+    const type = lowerMime.split(';')[0] || 'audio/mpeg';
+    return new Blob([bytes], { type });
+  }
+
+  const sampleRate = parseSampleRate(mimeType);
+  return pcm16ToWavBlob(bytes, sampleRate);
+}
+
+async function speakWithGemini(text, apiKey) {
+  const voiceName = voiceSelect.value || 'Kore';
+  const cacheKey = `${voiceName}::${text}`;
 
   if (audioCache.has(cacheKey)) {
     await playAudioUrl(audioCache.get(cacheKey));
-    setTtsStatus(`语音：OpenAI ${voice}（缓存）`);
+    setTtsStatus(`语音：Gemini ${voiceName}（缓存）`);
     return;
   }
 
-  if (openaiRequestController) {
-    openaiRequestController.abort();
+  if (ttsRequestController) {
+    ttsRequestController.abort();
   }
-  openaiRequestController = new AbortController();
+  ttsRequestController = new AbortController();
 
-  setTtsStatus('语音：OpenAI 生成中...');
+  setTtsStatus('语音：Gemini 生成中...');
 
-  const response = await fetch(OPENAI_API_URL, {
+  const response = await fetch(GEMINI_API_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
+      'x-goog-api-key': apiKey,
     },
     body: JSON.stringify({
-      model: OPENAI_MODEL,
-      voice,
-      input: text,
-      response_format: 'mp3',
-      instructions: OPENAI_TTS_INSTRUCTIONS,
+      contents: [
+        {
+          parts: [{ text }],
+        },
+      ],
+      generationConfig: {
+        responseModalities: ['AUDIO'],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: {
+              voiceName,
+            },
+          },
+        },
+      },
     }),
-    signal: openaiRequestController.signal,
+    signal: ttsRequestController.signal,
   });
 
   if (!response.ok) {
-    let errMessage = `OpenAI TTS 失败 (${response.status})`;
+    let errMessage = `Gemini TTS 失败 (${response.status})`;
     try {
       const payload = await response.json();
       if (payload?.error?.message) {
         errMessage = payload.error.message;
       }
     } catch (err) {
-      // keep fallback message
+      // ignore parsing failure
     }
     throw new Error(errMessage);
   }
 
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
+  const payload = await response.json();
+  const part = payload?.candidates?.[0]?.content?.parts?.find((p) => p?.inlineData?.data);
+  const base64Data = part?.inlineData?.data;
+  const mimeType = part?.inlineData?.mimeType || 'audio/L16;rate=24000';
+
+  if (!base64Data) {
+    throw new Error('Gemini 未返回音频数据');
+  }
+
+  const audioBlob = buildPlayableAudioBlob(base64Data, mimeType);
+  const url = URL.createObjectURL(audioBlob);
   putAudioCache(cacheKey, url);
+
   await playAudioUrl(url);
-  setTtsStatus(`语音：OpenAI ${voice}`);
+  setTtsStatus(`语音：Gemini ${voiceName}`);
 }
 
-function speakWithBrowser(text) {
+function speakWithBrowser(text, reason = GEMINI_FALLBACK_STATUS) {
   stopAllSpeech();
   if (!('speechSynthesis' in window)) {
     alert('浏览器不支持 TTS');
@@ -216,27 +310,26 @@ function speakWithBrowser(text) {
   const utter = new SpeechSynthesisUtterance(text);
   utter.lang = 'ja-JP';
   window.speechSynthesis.speak(utter);
-  setTtsStatus('语音：浏览器回退（未配置 OpenAI Key）');
+  setTtsStatus(reason);
 }
 
 async function speak(text) {
   if (!text) return;
 
-  const apiKey = getOpenAIKey();
+  const apiKey = getGeminiKey();
   if (!apiKey) {
-    speakWithBrowser(text);
+    speakWithBrowser(text, GEMINI_FALLBACK_STATUS);
     return;
   }
 
   try {
-    await speakWithOpenAI(text, apiKey);
+    await speakWithGemini(text, apiKey);
   } catch (err) {
     if (err.name === 'AbortError') {
       return;
     }
     console.error(err);
-    setTtsStatus(`语音：OpenAI失败，已回退 (${err.message})`);
-    speakWithBrowser(text);
+    speakWithBrowser(text, `语音：Gemini失败，已回退 (${err.message})`);
   }
 }
 
@@ -357,30 +450,33 @@ function initSourceFilter() {
 }
 
 function initKeyAndVoice() {
-  const savedKey = sessionStorage.getItem(OPENAI_KEY_STORAGE_KEY) || '';
+  const savedKey = localStorage.getItem(GEMINI_KEY_STORAGE_KEY) || '';
   if (savedKey) {
-    openaiKeyInput.value = savedKey;
+    geminiKeyInput.value = savedKey;
   }
 
-  openaiKeyInput.addEventListener('change', () => {
-    saveOpenAIKey();
-    if (getOpenAIKey()) {
-      setTtsStatus(`语音：OpenAI ${voiceSelect.value}`);
+  function syncGeminiKeyStatus() {
+    saveGeminiKey();
+    if (getGeminiKey()) {
+      setTtsStatus(`语音：Gemini ${voiceSelect.value}`);
     } else {
-      setTtsStatus('语音：浏览器回退（未配置 OpenAI Key）');
+      setTtsStatus(GEMINI_FALLBACK_STATUS);
     }
-  });
+  }
+
+  geminiKeyInput.addEventListener('input', syncGeminiKeyStatus);
+  geminiKeyInput.addEventListener('change', syncGeminiKeyStatus);
 
   voiceSelect.addEventListener('change', () => {
-    if (getOpenAIKey()) {
-      setTtsStatus(`语音：OpenAI ${voiceSelect.value}`);
+    if (getGeminiKey()) {
+      setTtsStatus(`语音：Gemini ${voiceSelect.value}`);
     }
   });
 }
 
 async function init() {
   furiganaStatus.textContent = '假名模式：预生成（稳定）';
-  setTtsStatus('语音：浏览器回退（未配置 OpenAI Key）');
+  setTtsStatus(GEMINI_FALLBACK_STATUS);
 
   const res = await fetch('data/index.json');
   if (!res.ok) {
@@ -404,8 +500,8 @@ async function init() {
   setupInfiniteScroll();
   initKeyAndVoice();
 
-  if (getOpenAIKey()) {
-    setTtsStatus(`语音：OpenAI ${voiceSelect.value}`);
+  if (getGeminiKey()) {
+    setTtsStatus(`语音：Gemini ${voiceSelect.value}`);
   }
 }
 
