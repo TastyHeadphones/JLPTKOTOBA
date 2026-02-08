@@ -37,11 +37,10 @@ python3 /Users/young/Github/JLPTKOTOBA/scripts/build_site.py
 - 前端按来源文件与分页加载词条，避免一次性加载全部数据导致卡顿或崩溃。
 - 页面滚动到底部会自动加载下一批词条（无“加载更多”按钮）。
 
-## Gemini TTS
-- 页面支持 Gemini 自然语音（模型：`gemini-2.5-flash-preview-tts`）。
-- 需要在页面的 `Gemini Key` 输入框填入你自己的 API Key（会保存在浏览器 `localStorage`）。
-- 未填写 Key 时会自动回退到浏览器内置 TTS。
-- 语音为 AI 生成音频。
-- Voice 名称使用 Gemini 官方列表（同一套 voice 可用于日语输入）。
-- 默认 voice 为 `Iapetus`（发音清晰），可在页面切换。
-- 浏览器回退语音会自动优先选择更自然的日语 voice（如 Siri/Natural/Kyoko/Nanami 等可用项）。
+## Cloud Text-to-Speech
+- 页面使用 Google Cloud Text-to-Speech API（REST：`text:synthesize`）。
+- 需要在页面的 `Cloud TTS Key` 输入框填入你自己的 API Key（会保存在浏览器 `localStorage`）。
+- API Key 需启用 `Cloud Text-to-Speech API`，并建议做 HTTP Referrer 限制。
+- 默认声音为 `ja-JP-Chirp3-HD-Iapetus`；可在页面切换其它日语 voice。
+- 页面会尝试拉取你账号可用的 `ja-JP` voice 列表，并自动更新下拉框。
+- 未填写 Key 或云端失败时会回退到浏览器内置 TTS。

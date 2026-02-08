@@ -7,17 +7,17 @@ const furiganaToggle = document.getElementById('furiganaToggle');
 const scrollSentinel = document.getElementById('scrollSentinel');
 const furiganaStatus = document.getElementById('furiganaStatus');
 const ttsStatus = document.getElementById('ttsStatus');
-const geminiKeyInput = document.getElementById('geminiKeyInput');
+const cloudTtsKeyInput = document.getElementById('cloudTtsKeyInput');
 const voiceSelect = document.getElementById('voiceSelect');
 
 const PAGE_SIZE = 80;
 const SEARCH_DEBOUNCE_MS = 250;
 
-const GEMINI_MODEL = 'gemini-2.5-flash-preview-tts';
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
-const GEMINI_KEY_STORAGE_KEY = 'gemini_api_key_persist';
-const GEMINI_FALLBACK_STATUS = '语音：浏览器回退（未配置 Gemini Key）';
-const GEMINI_DEFAULT_VOICE = 'Iapetus';
+const CLOUD_TTS_API_URL = 'https://texttospeech.googleapis.com/v1/text:synthesize';
+const CLOUD_TTS_VOICES_URL = 'https://texttospeech.googleapis.com/v1/voices';
+const CLOUD_TTS_KEY_STORAGE_KEY = 'cloud_tts_api_key_persist';
+const CLOUD_TTS_FALLBACK_STATUS = '语音：浏览器回退（未配置 Cloud TTS Key）';
+const CLOUD_TTS_DEFAULT_VOICE = 'ja-JP-Chirp3-HD-Iapetus';
 const MAX_AUDIO_CACHE = 16;
 
 let sourceMeta = [];
@@ -174,24 +174,17 @@ function putAudioCache(cacheKey, url) {
   }
 }
 
-function getGeminiKey() {
-  return geminiKeyInput.value.trim();
+function getCloudTtsKey() {
+  return cloudTtsKeyInput.value.trim();
 }
 
-function saveGeminiKey() {
-  const key = getGeminiKey();
+function saveCloudTtsKey() {
+  const key = getCloudTtsKey();
   if (key) {
-    localStorage.setItem(GEMINI_KEY_STORAGE_KEY, key);
+    localStorage.setItem(CLOUD_TTS_KEY_STORAGE_KEY, key);
   } else {
-    localStorage.removeItem(GEMINI_KEY_STORAGE_KEY);
+    localStorage.removeItem(CLOUD_TTS_KEY_STORAGE_KEY);
   }
-}
-
-function parseSampleRate(mimeType) {
-  const match = /rate=(\d+)/i.exec(mimeType || '');
-  if (!match) return 24000;
-  const value = Number(match[1]);
-  return Number.isFinite(value) && value > 0 ? value : 24000;
 }
 
 function base64ToBytes(input) {
@@ -205,66 +198,143 @@ function base64ToBytes(input) {
   return bytes;
 }
 
-function pcm16ToWavBlob(pcmBytes, sampleRate) {
-  const numChannels = 1;
-  const bitsPerSample = 16;
-  const blockAlign = (numChannels * bitsPerSample) / 8;
-  const byteRate = sampleRate * blockAlign;
-  const dataSize = pcmBytes.byteLength;
-  const buffer = new ArrayBuffer(44 + dataSize);
-  const view = new DataView(buffer);
+function scoreCloudVoiceName(name) {
+  let score = 0;
+  if (name.includes('Chirp3-HD')) score += 400;
+  else if (name.includes('Neural2')) score += 300;
+  else if (name.includes('Wavenet')) score += 200;
+  else if (name.includes('Standard')) score += 100;
 
-  function writeAscii(offset, text) {
-    for (let i = 0; i < text.length; i += 1) {
-      view.setUint8(offset + i, text.charCodeAt(i));
+  if (name.endsWith('Iapetus')) score += 40;
+  if (name.endsWith('Kore')) score += 30;
+  if (name.endsWith('Schedar')) score += 20;
+
+  return score;
+}
+
+function makeCloudVoiceLabel(name) {
+  if (name.includes('Chirp3-HD-')) {
+    return `${name.replace('ja-JP-Chirp3-HD-', '')} (Chirp3-HD)`;
+  }
+  if (name.includes('Neural2-')) {
+    return `${name.replace('ja-JP-', '')} (Neural2)`;
+  }
+  if (name.includes('Wavenet-')) {
+    return `${name.replace('ja-JP-', '')} (Wavenet)`;
+  }
+  if (name.includes('Standard-')) {
+    return `${name.replace('ja-JP-', '')} (Standard)`;
+  }
+  return name;
+}
+
+function populateVoiceSelect(voiceNames, preserveValue = '') {
+  const uniqueNames = [...new Set(voiceNames)].filter(Boolean);
+  if (!uniqueNames.length) return;
+
+  const preferred =
+    (preserveValue && uniqueNames.includes(preserveValue) && preserveValue) ||
+    (uniqueNames.includes(CLOUD_TTS_DEFAULT_VOICE) && CLOUD_TTS_DEFAULT_VOICE) ||
+    uniqueNames[0];
+
+  voiceSelect.innerHTML = '';
+  uniqueNames.forEach((name) => {
+    const option = document.createElement('option');
+    option.value = name;
+    option.textContent = makeCloudVoiceLabel(name);
+    voiceSelect.appendChild(option);
+  });
+
+  voiceSelect.value = preferred;
+}
+
+async function fetchCloudVoiceNames(apiKey) {
+  const url = `${CLOUD_TTS_VOICES_URL}?languageCode=ja-JP&key=${encodeURIComponent(apiKey)}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    let errMessage = `Cloud TTS voice 列表失败 (${res.status})`;
+    try {
+      const payload = await res.json();
+      if (payload?.error?.message) {
+        errMessage = payload.error.message;
+      }
+    } catch (err) {
+      // ignore parse errors
     }
+    throw new Error(errMessage);
   }
 
-  writeAscii(0, 'RIFF');
-  view.setUint32(4, 36 + dataSize, true);
-  writeAscii(8, 'WAVE');
-  writeAscii(12, 'fmt ');
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, numChannels, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, byteRate, true);
-  view.setUint16(32, blockAlign, true);
-  view.setUint16(34, bitsPerSample, true);
-  writeAscii(36, 'data');
-  view.setUint32(40, dataSize, true);
+  const payload = await res.json();
+  const names = (payload.voices || [])
+    .map((v) => v.name)
+    .filter((name) => typeof name === 'string' && name.startsWith('ja-JP-'))
+    .sort((a, b) => scoreCloudVoiceName(b) - scoreCloudVoiceName(a));
 
-  new Uint8Array(buffer, 44).set(pcmBytes);
-  return new Blob([buffer], { type: 'audio/wav' });
+  return names;
 }
 
-function buildPlayableAudioBlob(base64Data, mimeType) {
-  const bytes = base64ToBytes(base64Data);
-  const lowerMime = (mimeType || '').toLowerCase();
+async function refreshCloudVoiceOptions(apiKey) {
+  const current = voiceSelect.value;
+  const names = await fetchCloudVoiceNames(apiKey);
+  if (!names.length) return;
+  populateVoiceSelect(names, current);
+}
 
-  if (
-    lowerMime.includes('audio/wav') ||
-    lowerMime.includes('audio/mpeg') ||
-    lowerMime.includes('audio/mp3') ||
-    lowerMime.includes('audio/ogg') ||
-    lowerMime.includes('audio/webm') ||
-    lowerMime.includes('audio/aac')
-  ) {
-    const type = lowerMime.split(';')[0] || 'audio/mpeg';
-    return new Blob([bytes], { type });
+async function requestCloudSynthesis(apiKey, text, voiceName) {
+  const body = {
+    input: { text },
+    voice: { languageCode: 'ja-JP' },
+    audioConfig: {
+      audioEncoding: 'MP3',
+      speakingRate: 0.95,
+      pitch: 0,
+    },
+  };
+
+  if (voiceName) {
+    body.voice.name = voiceName;
   }
 
-  const sampleRate = parseSampleRate(mimeType);
-  return pcm16ToWavBlob(bytes, sampleRate);
+  const res = await fetch(`${CLOUD_TTS_API_URL}?key=${encodeURIComponent(apiKey)}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+    signal: ttsRequestController.signal,
+  });
+
+  if (!res.ok) {
+    let errMessage = `Cloud TTS 失败 (${res.status})`;
+    try {
+      const payload = await res.json();
+      if (payload?.error?.message) {
+        errMessage = payload.error.message;
+      }
+    } catch (err) {
+      // ignore parse errors
+    }
+    const error = new Error(errMessage);
+    error.status = res.status;
+    throw error;
+  }
+
+  const payload = await res.json();
+  if (!payload.audioContent) {
+    throw new Error('Cloud TTS 未返回音频数据');
+  }
+
+  const bytes = base64ToBytes(payload.audioContent);
+  return new Blob([bytes], { type: 'audio/mpeg' });
 }
 
-async function speakWithGemini(text, apiKey) {
-  const voiceName = voiceSelect.value || GEMINI_DEFAULT_VOICE;
-  const cacheKey = `${voiceName}::${text}`;
+async function speakWithCloudTts(text, apiKey) {
+  const selectedVoice = voiceSelect.value || CLOUD_TTS_DEFAULT_VOICE;
+  const cacheKey = `${selectedVoice}::${text}`;
 
   if (audioCache.has(cacheKey)) {
     await playAudioUrl(audioCache.get(cacheKey));
-    setTtsStatus(`语音：Gemini ${voiceName}（缓存）`);
+    setTtsStatus(`语音：Cloud TTS ${selectedVoice}（缓存）`);
     return;
   }
 
@@ -273,68 +343,29 @@ async function speakWithGemini(text, apiKey) {
   }
   ttsRequestController = new AbortController();
 
-  setTtsStatus('语音：Gemini 生成中...');
+  setTtsStatus('语音：Cloud TTS 生成中...');
 
-  const response = await fetch(GEMINI_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': apiKey,
-    },
-    body: JSON.stringify({
-      systemInstruction: {
-        parts: [{ text: 'Read the user text in natural Japanese (ja-JP). Keep wording unchanged.' }],
-      },
-      contents: [
-        {
-          parts: [{ text }],
-        },
-      ],
-      generationConfig: {
-        responseModalities: ['AUDIO'],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: {
-              voiceName,
-            },
-          },
-        },
-      },
-    }),
-    signal: ttsRequestController.signal,
-  });
-
-  if (!response.ok) {
-    let errMessage = `Gemini TTS 失败 (${response.status})`;
-    try {
-      const payload = await response.json();
-      if (payload?.error?.message) {
-        errMessage = payload.error.message;
-      }
-    } catch (err) {
-      // ignore parsing failure
+  let audioBlob;
+  let usedVoice = selectedVoice;
+  try {
+    audioBlob = await requestCloudSynthesis(apiKey, text, selectedVoice);
+  } catch (err) {
+    if (err.status === 400 && selectedVoice) {
+      audioBlob = await requestCloudSynthesis(apiKey, text, '');
+      usedVoice = 'ja-JP (auto)';
+    } else {
+      throw err;
     }
-    throw new Error(errMessage);
   }
 
-  const payload = await response.json();
-  const part = payload?.candidates?.[0]?.content?.parts?.find((p) => p?.inlineData?.data);
-  const base64Data = part?.inlineData?.data;
-  const mimeType = part?.inlineData?.mimeType || 'audio/L16;rate=24000';
-
-  if (!base64Data) {
-    throw new Error('Gemini 未返回音频数据');
-  }
-
-  const audioBlob = buildPlayableAudioBlob(base64Data, mimeType);
   const url = URL.createObjectURL(audioBlob);
   putAudioCache(cacheKey, url);
 
   await playAudioUrl(url);
-  setTtsStatus(`语音：Gemini ${voiceName}`);
+  setTtsStatus(`语音：Cloud TTS ${usedVoice}`);
 }
 
-function speakWithBrowser(text, reason = GEMINI_FALLBACK_STATUS) {
+function speakWithBrowser(text, reason = CLOUD_TTS_FALLBACK_STATUS) {
   stopAllSpeech();
   if (!('speechSynthesis' in window)) {
     alert('浏览器不支持 TTS');
@@ -359,20 +390,20 @@ function speakWithBrowser(text, reason = GEMINI_FALLBACK_STATUS) {
 async function speak(text) {
   if (!text) return;
 
-  const apiKey = getGeminiKey();
+  const apiKey = getCloudTtsKey();
   if (!apiKey) {
-    speakWithBrowser(text, GEMINI_FALLBACK_STATUS);
+    speakWithBrowser(text, CLOUD_TTS_FALLBACK_STATUS);
     return;
   }
 
   try {
-    await speakWithGemini(text, apiKey);
+    await speakWithCloudTts(text, apiKey);
   } catch (err) {
     if (err.name === 'AbortError') {
       return;
     }
     console.error(err);
-    speakWithBrowser(text, `语音：Gemini失败，已回退 (${err.message})`);
+    speakWithBrowser(text, `语音：Cloud TTS失败，已回退 (${err.message})`);
   }
 }
 
@@ -494,36 +525,50 @@ function initSourceFilter() {
 
 function initKeyAndVoice() {
   if (!voiceSelect.value) {
-    voiceSelect.value = GEMINI_DEFAULT_VOICE;
+    voiceSelect.value = CLOUD_TTS_DEFAULT_VOICE;
   }
 
-  const savedKey = localStorage.getItem(GEMINI_KEY_STORAGE_KEY) || '';
+  const savedKey = localStorage.getItem(CLOUD_TTS_KEY_STORAGE_KEY) || '';
   if (savedKey) {
-    geminiKeyInput.value = savedKey;
+    cloudTtsKeyInput.value = savedKey;
   }
 
-  function syncGeminiKeyStatus() {
-    saveGeminiKey();
-    if (getGeminiKey()) {
-      setTtsStatus(`语音：Gemini ${voiceSelect.value || GEMINI_DEFAULT_VOICE}`);
+  cloudTtsKeyInput.addEventListener('input', () => {
+    saveCloudTtsKey();
+    if (getCloudTtsKey()) {
+      setTtsStatus(`语音：Cloud TTS ${voiceSelect.value || CLOUD_TTS_DEFAULT_VOICE}`);
     } else {
-      setTtsStatus(GEMINI_FALLBACK_STATUS);
+      setTtsStatus(CLOUD_TTS_FALLBACK_STATUS);
     }
-  }
+  });
 
-  geminiKeyInput.addEventListener('input', syncGeminiKeyStatus);
-  geminiKeyInput.addEventListener('change', syncGeminiKeyStatus);
+  cloudTtsKeyInput.addEventListener('change', async () => {
+    const apiKey = getCloudTtsKey();
+    saveCloudTtsKey();
+    if (!apiKey) {
+      setTtsStatus(CLOUD_TTS_FALLBACK_STATUS);
+      return;
+    }
+
+    setTtsStatus(`语音：Cloud TTS ${voiceSelect.value || CLOUD_TTS_DEFAULT_VOICE}`);
+    try {
+      await refreshCloudVoiceOptions(apiKey);
+      setTtsStatus(`语音：Cloud TTS ${voiceSelect.value || CLOUD_TTS_DEFAULT_VOICE}`);
+    } catch (err) {
+      console.warn(err.message);
+    }
+  });
 
   voiceSelect.addEventListener('change', () => {
-    if (getGeminiKey()) {
-      setTtsStatus(`语音：Gemini ${voiceSelect.value || GEMINI_DEFAULT_VOICE}`);
+    if (getCloudTtsKey()) {
+      setTtsStatus(`语音：Cloud TTS ${voiceSelect.value || CLOUD_TTS_DEFAULT_VOICE}`);
     }
   });
 }
 
 async function init() {
   furiganaStatus.textContent = '假名模式：预生成（稳定）';
-  setTtsStatus(GEMINI_FALLBACK_STATUS);
+  setTtsStatus(CLOUD_TTS_FALLBACK_STATUS);
 
   const res = await fetch('data/index.json');
   if (!res.ok) {
@@ -547,14 +592,22 @@ async function init() {
   setupInfiniteScroll();
   initKeyAndVoice();
   refreshBestBrowserVoice();
+
   if ('speechSynthesis' in window && 'onvoiceschanged' in window.speechSynthesis) {
     window.speechSynthesis.onvoiceschanged = () => {
       refreshBestBrowserVoice();
     };
   }
 
-  if (getGeminiKey()) {
-    setTtsStatus(`语音：Gemini ${voiceSelect.value || GEMINI_DEFAULT_VOICE}`);
+  const apiKey = getCloudTtsKey();
+  if (apiKey) {
+    setTtsStatus(`语音：Cloud TTS ${voiceSelect.value || CLOUD_TTS_DEFAULT_VOICE}`);
+    try {
+      await refreshCloudVoiceOptions(apiKey);
+      setTtsStatus(`语音：Cloud TTS ${voiceSelect.value || CLOUD_TTS_DEFAULT_VOICE}`);
+    } catch (err) {
+      console.warn(err.message);
+    }
   }
 }
 

@@ -36,42 +36,22 @@
         </div>
         <div class="tts-controls">
           <label class="tts-key">
-            Gemini Key
-            <input id="geminiKeyInput" type="password" placeholder="AIza..." autocomplete="off" />
+            Cloud TTS Key
+            <input id="cloudTtsKeyInput" type="password" placeholder="AIza..." autocomplete="off" />
           </label>
           <label>
             声音
             <select id="voiceSelect">
-              <option value="Iapetus">Iapetus (Clear)</option>
-              <option value="Kore">Kore (Firm)</option>
-              <option value="Schedar">Schedar (Even)</option>
-              <option value="Sulafat">Sulafat (Warm)</option>
-              <option value="Erinome">Erinome (Clear)</option>
-              <option value="Zephyr">Zephyr (Bright)</option>
-              <option value="Puck">Puck (Upbeat)</option>
-              <option value="Charon">Charon (Informative)</option>
-              <option value="Fenrir">Fenrir (Excitable)</option>
-              <option value="Leda">Leda (Youthful)</option>
-              <option value="Orus">Orus (Firm)</option>
-              <option value="Aoede">Aoede (Breezy)</option>
-              <option value="Callirrhoe">Callirrhoe (Easy-going)</option>
-              <option value="Autonoe">Autonoe (Bright)</option>
-              <option value="Enceladus">Enceladus (Breathy)</option>
-              <option value="Umbriel">Umbriel (Easy-going)</option>
-              <option value="Algieba">Algieba (Smooth)</option>
-              <option value="Despina">Despina (Smooth)</option>
-              <option value="Algenib">Algenib (Gravelly)</option>
-              <option value="Rasalgethi">Rasalgethi (Informative)</option>
-              <option value="Laomedeia">Laomedeia (Upbeat)</option>
-              <option value="Achernar">Achernar (Soft)</option>
-              <option value="Alnilam">Alnilam (Firm)</option>
-              <option value="Gacrux">Gacrux (Mature)</option>
-              <option value="Pulcherrima">Pulcherrima (Forward)</option>
-              <option value="Achird">Achird (Friendly)</option>
-              <option value="Zubenelgenubi">Zubenelgenubi (Casual)</option>
-              <option value="Vindemiatrix">Vindemiatrix (Gentle)</option>
-              <option value="Sadachbia">Sadachbia (Lively)</option>
-              <option value="Sadaltager">Sadaltager (Knowledgeable)</option>
+              <option value="ja-JP-Chirp3-HD-Iapetus">ja-JP-Chirp3-HD-Iapetus</option>
+              <option value="ja-JP-Chirp3-HD-Kore">ja-JP-Chirp3-HD-Kore</option>
+              <option value="ja-JP-Chirp3-HD-Schedar">ja-JP-Chirp3-HD-Schedar</option>
+              <option value="ja-JP-Chirp3-HD-Sulafat">ja-JP-Chirp3-HD-Sulafat</option>
+              <option value="ja-JP-Neural2-B">ja-JP-Neural2-B</option>
+              <option value="ja-JP-Neural2-C">ja-JP-Neural2-C</option>
+              <option value="ja-JP-Neural2-D">ja-JP-Neural2-D</option>
+              <option value="ja-JP-Wavenet-B">ja-JP-Wavenet-B</option>
+              <option value="ja-JP-Wavenet-C">ja-JP-Wavenet-C</option>
+              <option value="ja-JP-Standard-B">ja-JP-Standard-B</option>
             </select>
           </label>
         </div>
@@ -79,7 +59,7 @@
           <span id="count">0</span> 词条
         </div>
         <p id="furiganaStatus" class="furigana-status">假名模式：使用预生成数据（稳定）</p>
-        <p id="ttsStatus" class="furigana-status">语音：Gemini TTS（需 Key）</p>
+        <p id="ttsStatus" class="furigana-status">语音：Cloud Text-to-Speech（需 Key）</p>
       </div>
     </header>
 
@@ -104,6 +84,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=20260208-7"></script>
+  <script src="app.js?v=20260208-8"></script>
 </body>
 </html>
