@@ -80,8 +80,14 @@ function getState(sourceId) {
   return sourceState.get(sourceId);
 }
 
+function getSourceOptionInputs() {
+  return Array.from(sourceFilter.querySelectorAll('.source-option-input'));
+}
+
 function getSelectedSourceIdsFromControl() {
-  return Array.from(sourceFilter.selectedOptions).map((opt) => opt.value);
+  return getSourceOptionInputs()
+    .filter((input) => input.checked)
+    .map((input) => input.value);
 }
 
 function setSelectedSourceIds(ids) {
@@ -91,8 +97,8 @@ function setSelectedSourceIds(ids) {
 }
 
 function selectAllSources() {
-  Array.from(sourceFilter.options).forEach((opt) => {
-    opt.selected = true;
+  getSourceOptionInputs().forEach((input) => {
+    input.checked = true;
   });
   setSelectedSourceIds(getSelectedSourceIdsFromControl());
 }
@@ -591,13 +597,28 @@ function setupInfiniteScroll() {
 
 function initSourceFilter() {
   sourceFilter.innerHTML = '';
-  sourceFilter.multiple = true;
-  sourceFilter.size = Math.min(8, Math.max(4, sourceMeta.length));
   sourceMeta.forEach((meta) => {
-    const opt = document.createElement('option');
-    opt.value = meta.id;
-    opt.textContent = `${meta.label} (${meta.count})`;
-    sourceFilter.appendChild(opt);
+    const option = document.createElement('label');
+    option.className = 'source-option';
+
+    const text = document.createElement('span');
+    text.className = 'source-option-text';
+    text.textContent = `${meta.label} (${meta.count})`;
+
+    const input = document.createElement('input');
+    input.className = 'source-option-input';
+    input.type = 'checkbox';
+    input.value = meta.id;
+
+    const mark = document.createElement('span');
+    mark.className = 'source-option-mark';
+    mark.textContent = '✓';
+    mark.setAttribute('aria-hidden', 'true');
+
+    option.appendChild(text);
+    option.appendChild(input);
+    option.appendChild(mark);
+    sourceFilter.appendChild(option);
   });
 }
 
@@ -721,8 +742,8 @@ if (selectAllSourcesBtn) {
 
 if (clearSourcesBtn) {
   clearSourcesBtn.addEventListener('click', () => {
-    Array.from(sourceFilter.options).forEach((opt) => {
-      opt.selected = false;
+    getSourceOptionInputs().forEach((input) => {
+      input.checked = false;
     });
     onSourceChange().catch((err) => {
       console.error(err);
