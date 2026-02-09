@@ -43,6 +43,12 @@ main {
   margin-bottom: 22px;
 }
 
+.page-links {
+  margin: 0;
+  display: flex;
+  gap: 10px;
+}
+
 .home-link {
   width: fit-content;
   text-decoration: none;

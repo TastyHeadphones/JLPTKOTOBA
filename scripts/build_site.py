@@ -13,6 +13,7 @@ from urllib.request import Request, urlopen
 
 import pdfplumber
 from pykakasi import kakasi
+from build_kanji_data import build as build_kanji_data
 
 ROOT = Path('/Users/young/Github/JLPTKOTOBA')
 PDF_DIR = ROOT / 'PDF'
@@ -999,6 +1000,7 @@ def main():
         json.dump(index, f, ensure_ascii=False)
 
     print(f'Wrote {len(out)} entries into chunk files under {data_dir}')
+    build_kanji_data()
 
 
 if __name__ == '__main__':

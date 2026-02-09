@@ -61,3 +61,4 @@ wheels/
 /data/jpn-eng_links.tsv.bz2
 /data/eng_sentences.tsv.bz2
 /data/ai_examples_cache.json
+/data/kanjidic2.xml.gz
