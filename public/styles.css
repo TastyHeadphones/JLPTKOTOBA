@@ -155,18 +155,6 @@ header {
   accent-color: var(--accent);
 }
 
-.source-option-mark {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--accent);
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-
-.source-option-input:checked + .source-option-mark {
-  opacity: 1;
-}
-
 .source-filter-actions {
   display: flex;
   gap: 8px;

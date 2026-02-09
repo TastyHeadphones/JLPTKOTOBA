@@ -22,6 +22,7 @@ const CLOUD_TTS_KEY_STORAGE_KEY = 'cloud_tts_api_key_persist';
 const CLOUD_TTS_FALLBACK_STATUS = '语音：浏览器回退（未配置 Cloud TTS Key）';
 const CLOUD_TTS_DEFAULT_VOICE = 'ja-JP-Chirp3-HD-Iapetus';
 const MAX_AUDIO_CACHE = 16;
+const SOURCE_FILTER_STORAGE_KEY = 'source_filter_selected_ids';
 
 let sourceMeta = [];
 let selectedSourceIds = [];
@@ -94,6 +95,32 @@ function setSelectedSourceIds(ids) {
   selectedSourceIds = sourceMeta
     .map((meta) => meta.id)
     .filter((id) => ids.includes(id));
+}
+
+function saveSelectedSourceIds() {
+  localStorage.setItem(SOURCE_FILTER_STORAGE_KEY, JSON.stringify(selectedSourceIds));
+}
+
+function loadSavedSourceIds() {
+  const raw = localStorage.getItem(SOURCE_FILTER_STORAGE_KEY);
+  if (raw == null) return null;
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+    return parsed.filter((id) => typeof id === 'string');
+  } catch (err) {
+    console.warn('来源筛选记忆读取失败:', err);
+    return null;
+  }
+}
+
+function applySourceSelection(ids) {
+  const wanted = new Set(ids);
+  getSourceOptionInputs().forEach((input) => {
+    input.checked = wanted.has(input.value);
+  });
+  setSelectedSourceIds(getSelectedSourceIdsFromControl());
 }
 
 function selectAllSources() {
@@ -537,6 +564,7 @@ function resetAndRender() {
 
 async function onSourceChange() {
   setSelectedSourceIds(getSelectedSourceIdsFromControl());
+  saveSelectedSourceIds();
   renderPage = 1;
 
   if (selectedSourceIds.length) {
@@ -610,14 +638,8 @@ function initSourceFilter() {
     input.type = 'checkbox';
     input.value = meta.id;
 
-    const mark = document.createElement('span');
-    mark.className = 'source-option-mark';
-    mark.textContent = '✓';
-    mark.setAttribute('aria-hidden', 'true');
-
     option.appendChild(text);
     option.appendChild(input);
-    option.appendChild(mark);
     sourceFilter.appendChild(option);
   });
 }
@@ -683,7 +705,13 @@ async function init() {
   }
 
   initSourceFilter();
-  selectAllSources();
+  const savedSourceIds = loadSavedSourceIds();
+  if (savedSourceIds === null) {
+    selectAllSources();
+  } else {
+    applySourceSelection(savedSourceIds);
+  }
+  saveSelectedSourceIds();
   renderPage = 1;
   await loadSelectedUntil(1);
   render();
