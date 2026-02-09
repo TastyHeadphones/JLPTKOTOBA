@@ -62,6 +62,17 @@ header {
   color: var(--muted);
 }
 
+.gojuon-entry {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(192, 86, 58, 0.35);
+}
+
+.gojuon-entry:hover {
+  color: #9a4028;
+  border-bottom-color: currentColor;
+}
+
 .controls {
   display: grid;
   gap: 16px;
@@ -183,86 +194,6 @@ header {
   color: var(--muted);
 }
 
-.phonetics-section {
-  display: grid;
-  gap: 14px;
-  margin-bottom: 30px;
-  padding: 18px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.7);
-  box-shadow: var(--shadow);
-  border: 1px solid rgba(45, 106, 79, 0.12);
-}
-
-.phonetics-header h2 {
-  margin: 0 0 6px;
-  font-family: "Shippori Mincho", serif;
-  font-weight: 600;
-  font-size: 1.45rem;
-}
-
-.phonetics-header p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-
-.phonetic-groups {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 14px;
-}
-
-.phonetic-group {
-  background: #fff;
-  border-radius: 14px;
-  border: 1px solid rgba(192, 86, 58, 0.16);
-  padding: 14px;
-  display: grid;
-  gap: 10px;
-}
-
-.phonetic-group h3 {
-  margin: 0;
-  font-size: 0.95rem;
-  color: #7c3d2b;
-}
-
-.phonetic-items {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.phonetic-btn {
-  border: 1px solid #e1d8cd;
-  background: #fffdfa;
-  border-radius: 12px;
-  padding: 7px 10px;
-  cursor: pointer;
-  display: grid;
-  gap: 2px;
-  min-width: 70px;
-  text-align: center;
-}
-
-.phonetic-btn:hover {
-  border-color: var(--accent);
-  transform: translateY(-1px);
-}
-
-.phonetic-kana {
-  font-family: "Shippori Mincho", serif;
-  font-size: 1.1rem;
-  line-height: 1.2;
-}
-
-.phonetic-romaji {
-  font-size: 0.72rem;
-  letter-spacing: 0.03em;
-  color: var(--muted);
-}
-
 .list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -371,6 +302,10 @@ header {
 .example-block .label {
   font-size: 0.8rem;
   color: var(--muted);
+}
+
+ruby {
+  ruby-position: over;
 }
 
 ruby rt {

@@ -5,11 +5,12 @@
 - 日文例句
 - 汉字假名（Furigana）
 - 点击词条/例句进行 TTS 朗读
+- 独立 50 音发音页（含浊音、半浊音、拗音、拗音长音、外来音与特殊拍）
 
 ## 目录结构
 - `PDF/`：原始词汇表 PDF
 - `scripts/build_site.py`：解析 PDF 并生成数据
-- `public/`：静态站点（`index.html`、`styles.css`、`app.js`）
+- `public/`：静态站点（`index.html`、`styles.css`、`app.js`、`gojuon.html`、`gojuon.css`、`gojuon.js`）
 - `public/data/`：按来源与分页切分后的词条数据
 
 ## 本地运行
@@ -18,6 +19,7 @@ cd /Users/young/Github/JLPTKOTOBA/public
 python3 -m http.server 8000
 ```
 然后访问：`http://localhost:8000`
+50 音页：`http://localhost:8000/gojuon.html`
 
 ## 假名说明
 假名在构建阶段由 `pykakasi` 预生成，页面直接渲染，不依赖在线词典。

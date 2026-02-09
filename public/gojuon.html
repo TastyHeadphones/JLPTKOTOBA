@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>日语发音总览（50音）</title>
+  <link rel="stylesheet" href="gojuon.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+1p:wght@300;400;600;700&family=Shippori+Mincho:wght@400;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div class="bg"></div>
+  <main>
+    <header class="hero">
+      <a class="home-link" href="./">返回词汇主页</a>
+      <h1>日语发音总览</h1>
+      <p class="subtitle">按五十音图标准排版，包含清音、浊音、半浊音、拗音、拗音长音、外来音与特殊拍。</p>
+
+      <div class="tts-panel">
+        <label class="tts-key">
+          Cloud TTS Key
+          <input id="cloudTtsKeyInput" type="password" placeholder="AIza..." autocomplete="off" />
+        </label>
+        <label>
+          声音
+          <select id="voiceSelect">
+            <option value="ja-JP-Chirp3-HD-Iapetus">ja-JP-Chirp3-HD-Iapetus</option>
+            <option value="ja-JP-Chirp3-HD-Kore">ja-JP-Chirp3-HD-Kore</option>
+            <option value="ja-JP-Chirp3-HD-Schedar">ja-JP-Chirp3-HD-Schedar</option>
+            <option value="ja-JP-Chirp3-HD-Sulafat">ja-JP-Chirp3-HD-Sulafat</option>
+            <option value="ja-JP-Neural2-B">ja-JP-Neural2-B</option>
+            <option value="ja-JP-Neural2-C">ja-JP-Neural2-C</option>
+            <option value="ja-JP-Neural2-D">ja-JP-Neural2-D</option>
+            <option value="ja-JP-Wavenet-B">ja-JP-Wavenet-B</option>
+            <option value="ja-JP-Wavenet-C">ja-JP-Wavenet-C</option>
+            <option value="ja-JP-Standard-B">ja-JP-Standard-B</option>
+          </select>
+        </label>
+        <p id="ttsStatus">语音：浏览器回退（未配置 Cloud TTS Key）</p>
+      </div>
+    </header>
+
+    <section id="gojuonSection"></section>
+    <section id="dakuonSection"></section>
+    <section id="yoonSection"></section>
+    <section id="yoonLongSection"></section>
+    <section id="foreignSection"></section>
+    <section id="specialSection"></section>
+  </main>
+
+  <script src="gojuon.js?v=20260209-1"></script>
+</body>
+</html>
